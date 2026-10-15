@@ -1,0 +1,37 @@
+{
+  "name": "@guga-onduty/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:qw": "tsx watch src/qw-pages.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "tsx src/db/seed.ts",
+    "db:generate": "drizzle-kit generate --config=drizzle.sqlite.config.ts && drizzle-kit generate --config=drizzle.pg.config.ts",
+    "db:generate:sqlite": "drizzle-kit generate --config=drizzle.sqlite.config.ts",
+    "db:generate:pg": "drizzle-kit generate --config=drizzle.pg.config.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@guga-onduty/shared": "workspace:*",
+    "@homurajs/app-kit": "26.10.15",
+    "@homurajs/auth": "26.10.15",
+    "@homurajs/core": "26.10.15",
+    "@homurajs/db": "26.10.15",
+    "@homurajs/storage": "26.10.15",
+    "@hono/node-server": "^1.19.0",
+    "drizzle-orm": "1.0.0-rc.4",
+    "hono": "^4.10.0",
+    "postgres": "^3.4.5",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "drizzle-kit": "1.0.0-rc.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.4"
+  }
+}

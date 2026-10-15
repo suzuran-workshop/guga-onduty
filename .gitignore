@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.db
+*.db-wal
+*.db-shm
+uploads/*
+!uploads/.gitkeep
+.env
+.DS_Store
+# TS 增量构建产物
+*.tsbuildinfo
