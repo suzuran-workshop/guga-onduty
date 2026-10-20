@@ -14,20 +14,20 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@homurajs/app-kit':
-        specifier: 26.10.15
-        version: 26.10.15(@hono/node-server@1.19.17(hono@4.13.13))
+        specifier: 26.10.19
+        version: 26.10.19(@hono/node-server@1.19.17(hono@4.13.13))
       '@homurajs/auth':
-        specifier: 26.10.15
-        version: 26.10.15(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
+        specifier: 26.10.19
+        version: 26.10.19(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
       '@homurajs/core':
-        specifier: 26.10.15
-        version: 26.10.15
+        specifier: 26.10.19
+        version: 26.10.19
       '@homurajs/db':
-        specifier: 26.10.15
-        version: 26.10.15(postgres@3.4.9)
+        specifier: 26.10.19
+        version: 26.10.19(postgres@3.4.9)
       '@homurajs/storage':
-        specifier: 26.10.15
-        version: 26.10.15(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
+        specifier: 26.10.19
+        version: 26.10.19(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
       '@hono/node-server':
         specifier: ^1.19.0
         version: 1.19.17(hono@4.13.13)
@@ -50,6 +50,9 @@ importers:
       drizzle-kit:
         specifier: 1.0.0-rc.4
         version: 1.0.0-rc.4
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       tsx:
         specifier: ^4.19.2
         version: 4.23.15
@@ -499,8 +502,8 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@homurajs/app-kit@26.10.15':
-    resolution: {integrity: sha512-4/Vgki23ZAThGjHelsP/XE9wXA/x/XhEsn32qSym9dCd97laK6fg3inCYUJ8GyV+DCdNLjQnp/VhAy7b6TSrOQ==}
+  '@homurajs/app-kit@26.10.19':
+    resolution: {integrity: sha512-Vv2wOdY4/a+zK2Fywu+LfBW/cVGQITDXU2Wsr0UFpFglxz1JofGImdaoHFpe/734cdcwtmDdA8A8keK+gwwiBA==}
     engines: {node: '>=22.5'}
     peerDependencies:
       '@hono/node-server': ^1.19.0
@@ -508,8 +511,8 @@ packages:
       '@hono/node-server':
         optional: true
 
-  '@homurajs/auth@26.10.15':
-    resolution: {integrity: sha512-MPfAmP8G5A//NE8goewQg3spxs6DMg8rFQNJRVbO03AE0QCS/tG1fFKkhtcDPcadT0IOl2C14XVUOX8V6ulZww==}
+  '@homurajs/auth@26.10.19':
+    resolution: {integrity: sha512-OIgUGrMVnhfLMmscBeiT0MDD2LIwDbNZlij/NhPNGCQJyCbtBJhwLWdb/9leFWdBjYTF18jBpUbYFyCNFt45xw==}
     engines: {node: '>=22.5'}
     peerDependencies:
       '@simplewebauthn/server': ^11.0.0
@@ -523,12 +526,12 @@ packages:
       hono:
         optional: true
 
-  '@homurajs/core@26.10.15':
-    resolution: {integrity: sha512-8bnw0adRUT04tBx9k70Jsh34DRSsoX4bVZlHb2LkbtDLZ6Hn2rOyCTD7V0h1oQ9U8dG+8LqKXUr+HpDYXlqdGA==}
+  '@homurajs/core@26.10.19':
+    resolution: {integrity: sha512-vFZTRskEHZZatp/lnTaycYccAyxfoH5tSjAw2LueyU48DOAC6hMeSpTPTDwlSNxKSfdSBSs5AjZDKuCRw78QTg==}
     engines: {node: '>=22.5'}
 
-  '@homurajs/db@26.10.15':
-    resolution: {integrity: sha512-z7IvxsoiVR6SN4Rz15H3KCBgFWzGX5TB7XTmM5X+UZ9YX5lmw62SWm8ms2nDigIyWga2ABKDHRL5zVxWCs5mvA==}
+  '@homurajs/db@26.10.19':
+    resolution: {integrity: sha512-gARUBPHUXjmjE3LoGiEp7EXvrDNcsUAocJP79Ikxjk91fZ25CTdKyOqfTUg+e9PHO1mwwh/4sywJ0rcSoLoLlw==}
     engines: {node: '>=22.5'}
     peerDependencies:
       postgres: ^3.4.0
@@ -536,8 +539,8 @@ packages:
       postgres:
         optional: true
 
-  '@homurajs/storage@26.10.15':
-    resolution: {integrity: sha512-Zwc5kHSKo//plwES7Yp4Kcv1fpoV9mJ3gAxWtLbX1DmjMqGS+U1Diz/UpsTtBZ93sdfNvj91qWzqvusb8hR1mw==}
+  '@homurajs/storage@26.10.19':
+    resolution: {integrity: sha512-xGkMEvlBP3kZYtmhbyirxhgIJq6SExTI6CR406ZY6UKrvq1MOTg7E6u7quzljTIcXx98LIGxTJ3ltwfd+2MSOw==}
     engines: {node: '>=22.5'}
     peerDependencies:
       '@aws-sdk/client-s3': '>=3.0.0'
@@ -2471,17 +2474,17 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@homurajs/app-kit@26.10.15(@hono/node-server@1.19.17(hono@4.13.13))':
+  '@homurajs/app-kit@26.10.19(@hono/node-server@1.19.17(hono@4.13.13))':
     dependencies:
-      '@homurajs/core': 26.10.15
+      '@homurajs/core': 26.10.19
       hono: 4.13.13
     optionalDependencies:
       '@hono/node-server': 1.19.17(hono@4.13.13)
 
-  '@homurajs/auth@26.10.15(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
+  '@homurajs/auth@26.10.19(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
     dependencies:
-      '@homurajs/core': 26.10.15
-      '@homurajs/db': 26.10.15(postgres@3.4.9)
+      '@homurajs/core': 26.10.19
+      '@homurajs/db': 26.10.19(postgres@3.4.9)
       jose: 6.2.12
     optionalDependencies:
       drizzle-orm: 1.0.0-rc.4(postgres@3.4.9)
@@ -2535,11 +2538,11 @@ snapshots:
       - valibot
       - zod
 
-  '@homurajs/core@26.10.15': {}
+  '@homurajs/core@26.10.19': {}
 
-  '@homurajs/db@26.10.15(postgres@3.4.9)':
+  '@homurajs/db@26.10.19(postgres@3.4.9)':
     dependencies:
-      '@homurajs/core': 26.10.15
+      '@homurajs/core': 26.10.19
       drizzle-orm: 1.0.0-rc.4(postgres@3.4.9)
     optionalDependencies:
       postgres: 3.4.9
@@ -2591,10 +2594,10 @@ snapshots:
       - valibot
       - zod
 
-  '@homurajs/storage@26.10.15(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
+  '@homurajs/storage@26.10.19(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
     dependencies:
-      '@homurajs/core': 26.10.15
-      '@homurajs/db': 26.10.15(postgres@3.4.9)
+      '@homurajs/core': 26.10.19
+      '@homurajs/db': 26.10.19(postgres@3.4.9)
     optionalDependencies:
       drizzle-orm: 1.0.0-rc.4(postgres@3.4.9)
       hono: 4.13.13

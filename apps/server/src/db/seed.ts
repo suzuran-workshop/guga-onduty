@@ -21,7 +21,11 @@ export async function seed(): Promise<void> {
   await migrate(handle);
 
   if (handle.kind === 'rest') {
-    logger.warn('seed: rest 轨（qw-pages）种子待 P4 rest repo 就绪后支持');
+    // rest 轨：幂等最小种子（默认校区 + admin + semester_start），复用 repos/rest/seed.ts
+    const { seedRest } = await import('../repos/rest/seed.js');
+    const s = await seedRest(handle.rest);
+    logger.info(s.seeded ? 'rest seed inserted.' : 'rest seed skipped (already seeded).');
+    closeDatabase(handle);
     return;
   }
 

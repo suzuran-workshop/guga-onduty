@@ -1,5 +1,5 @@
 /**
- * 对象存储装配 —— @homurajs/storage local-fs 后端 + /files 代理路由。
+ * 对象存储装配 —— 双后端：standalone 走 local-fs，qw-pages（rest 轨）走 DB 分块存储。
  *
  * 迁移要点：
  *  - 图片统一走 storage.uploadFile + /files/<key> 代理（objectKey 存表，非自造相对路径）。
@@ -7,21 +7,28 @@
  *
  * 形态边界：
  *  - standalone（sqlite/pg）：local-fs 后端（rootDir 可写）。
- *  - qw-pages：local 后端不可用（应用根只读），正解是 db 后端 —— 但 @homurajs/storage@26.10.15
- *    发布缺失 ./db、./tables 子路径文件（发包 bug，见 MIGRATION §2.6 注），故 rest 轨 storage 待该包修复。
- *    本次 rest 轨 repo 也未实现（P4），storage 在 rest 轨暂不可用，buildStorage 会 warn。
+ *  - qw-pages（rest 轨）：应用根只读，改用 @homurajs/storage ./db 的 createRestFileStore ——
+ *    把二进制以 base64 分块写进 Postgres（homura_files 清单表 + homura_file_chunks 块表），
+ *    绕开 PostgREST 单值 ~1MB 限制；照片随库持久，跨发布不清空。
+ *    （前置：两表须由平台受控迁移预建并授权 anon 角色；见 migration / @homurajs/storage/tables。）
  */
 import type { FileStorage } from '@homurajs/storage';
 import { createLocalStorage } from '@homurajs/storage/local';
+import { createRestFileStore } from '@homurajs/storage/db';
 import { createFileProxyRoutes } from '@homurajs/storage/proxy';
 import { Hono } from 'hono';
 import type { AppConfig } from '../config.js';
 import type { DbHandle } from '../db/client.js';
 
-/** 构造存储后端（当前仅 local-fs；rest 轨待 storage 包修复后接 db 后端） */
-export function buildStorage(cfg: AppConfig, handle: DbHandle, logger?: { warn: (m: string, f?: any) => void }): FileStorage {
+/**
+ * 构造存储后端。
+ *  - standalone（sqlite/pg）：local-fs，rootDir 取 STORAGE_ROOT（缺省 ./data/files）。
+ *  - qw-pages（rest 轨）：createRestFileStore(handle.rest)，DB 分块持久化（表由平台迁移预建）。
+ */
+export function buildStorage(cfg: AppConfig, handle: DbHandle, logger?: { warn: (m: string, f?: any) => void; info?: (m: string, f?: any) => void }): FileStorage {
   if (handle.kind === 'rest') {
-    logger?.warn('storage: rest 轨（qw-pages）暂用 local 后端兜底，正式需 db 后端（@homurajs/storage 发包缺失 ./db，见 MIGRATION §2.6）');
+    logger?.info?.('storage: rest 轨使用 DB 分块后端（homura_files / homura_file_chunks）');
+    return createRestFileStore(handle.rest);
   }
   return createLocalStorage({ rootDir: cfg.get('storageRoot') });
 }

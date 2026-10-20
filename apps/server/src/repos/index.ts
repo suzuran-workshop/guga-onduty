@@ -13,6 +13,7 @@ import type { DbHandle, Tables } from '../db/client.js';
 import type { PasswordProvider, UserStore } from '@homurajs/auth';
 import type { Repos } from './types.js';
 import { createDrizzleRepos } from './drizzle/index.js';
+import { createRestRepos } from './rest/index.js';
 
 export interface CreateReposOptions {
   /** users-repo 需要的 auth 依赖（PasswordProvider + UserStore） */
@@ -22,8 +23,8 @@ export interface CreateReposOptions {
 
 export function createRepos(handle: DbHandle, opts: CreateReposOptions): Repos {
   if (handle.kind === 'rest') {
-    // P4：rest 轨 repo（PostgREST API，无 join/事务，聚合在 JS 侧）
-    throw new Error('rest 轨 repo 尚未实现（P4）；qw-pages 形态待接入');
+    // rest 轨 repo（PostgREST API，无 join/事务，聚合在 JS 侧）
+    return createRestRepos(handle.rest, opts);
   }
 
   // drizzle 轨：按方言注入表对象（sqlite 用 sqliteTables/sqliteAuthTables，pg 用 pg*）

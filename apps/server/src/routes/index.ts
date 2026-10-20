@@ -18,7 +18,6 @@
  */
 import { Hono } from 'hono';
 import type { RouteDeps } from './_deps.js';
-import { requireProfile } from '../middleware/profile.js';
 
 import { createAuthRoutes } from './auth.js';
 import { createCampusRoutes } from './campuses.js';
@@ -30,8 +29,8 @@ import { createDutyRoutes } from './duty.js';
 export function buildApiRoutes(deps: RouteDeps): Hono {
   const api = new Hono();
 
-  // 统一前置：session claims → 业务档案
-  api.use('*', requireProfile(deps.repos.users));
+  // requireProfile 由 app.ts 在 business 层按 /api/* 与 /files/* 前置挂载
+  // （不再用 use('*')，否则会挡掉 SPA 的 / 、/login 与 /assets/* 静态请求）。
 
   // ── 基础（校区/用户/设置）──
   api.route('/api/v1/auth', createAuthRoutes(deps));

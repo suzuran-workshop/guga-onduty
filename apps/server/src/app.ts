@@ -25,6 +25,7 @@ import { pingDb } from './db/client.js';
 import type { AuthBundle } from './auth/build.js';
 import { buildApiRoutes } from './routes/index.js';
 import { buildFileRoutes } from './storage/build.js';
+import { requireProfile } from './middleware/profile.js';
 import type { FileStorage } from '@homurajs/storage';
 import type { Repos } from './repos/types.js';
 import { ApiError, isUniqueViolation } from './http/respond.js';
@@ -60,6 +61,11 @@ export function buildApp(opts: BuildAppOptions): HomuraApp {
       { status: 413 },
     ),
   }));
+  // 业务身份：仅对 /api/* 与 /files/* 前置 requireProfile（读 c.auth → 查 profile → c.set('profile')）。
+  // 不能挂 use('*')：那会挡掉 SPA 的 / 、/login、/assets/*，未登录用户连登录页都打不开。
+  // /files/* 的图片代理依赖此处注入的 profile 做校区隔离（见 storage/build.ts）。
+  business.use('/api/*', requireProfile(repos.users));
+  business.use('/files/*', requireProfile(repos.users));
   business.route('/', buildApiRoutes({ repos, storage, auth }));
   // /files/<key> 代理下载（createFileProxyRoutes 内部已注册 /files/:key，故挂根路径 '/'）
   // objectKey 为 uuid 前缀不可猜；<img> 同源自动带 cookie。修复旧代码图片死数据 bug。

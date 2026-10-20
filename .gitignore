@@ -9,3 +9,4 @@ uploads/*
 .DS_Store
 # TS 增量构建产物
 *.tsbuildinfo
+.publish
