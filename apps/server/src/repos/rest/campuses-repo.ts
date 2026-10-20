@@ -9,10 +9,10 @@
 import type { Campus } from '@guga-onduty/shared';
 import type { CampusesRepo } from '../types.js';
 import type { RestCtx } from './_base.js';
-import { tbl, num, uuid } from './_base.js';
+import { tbl, ts, uuid, nowIso } from './_base.js';
 
 function toCampus(r: any): Campus {
-  return { id: r.id, name: r.name, code: r.code, createdAt: num(r.createdAt) };
+  return { id: r.id, name: r.name, code: r.code, createdAt: ts(r.createdAt) };
 }
 
 export function createCampusesRepo(ctx: RestCtx): CampusesRepo {
@@ -36,7 +36,7 @@ export function createCampusesRepo(ctx: RestCtx): CampusesRepo {
 
     async create(input): Promise<Campus> {
       const id = uuid();
-      await campuses.insert({ id, name: input.name, code: input.code, createdAt: Date.now() });
+      await campuses.insert({ id, name: input.name, code: input.code, createdAt: nowIso() });
       const found = await this.findById(id);
       if (!found) throw new Error('校区创建后回查失败');
       return found;

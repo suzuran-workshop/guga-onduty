@@ -25,7 +25,7 @@ import type {
   DutyScheduleRow, SwapRow, CheckinRow, InspectionRow, InspectionItem,
   DutyKind, SwapType, SwapStatus, WeekParity,
 } from '../../duty/types.js';
-import { tbl, paginateRows, indexByIds, num, jsonArr, uuid } from './_base.js';
+import { tbl, paginateRows, indexByIds, num, ts, nowIso, jsonArr, uuid } from './_base.js';
 
 // ── 行映射：DB 行 → 引擎领域类型（对齐 drizzle 版）────────────────────
 function toScheduleRow(r: any): DutyScheduleRow {
@@ -54,14 +54,14 @@ function toSwapRow(r: any): SwapRow {
     targetId: r.targetId, targetScheduleId: r.targetScheduleId ?? null, targetDate: r.targetDate ?? null,
     reason: r.reason, status: r.status as SwapStatus,
     reviewerId: r.reviewerId ?? null, reviewComment: r.reviewComment ?? null,
-    createdAt: num(r.createdAt), reviewedAt: r.reviewedAt == null ? null : num(r.reviewedAt),
+    createdAt: ts(r.createdAt), reviewedAt: r.reviewedAt == null ? null : num(r.reviewedAt),
   };
 }
 function toInspectionRow(r: any): InspectionRow {
   return {
     id: r.id, campusId: r.campusId, inspectorId: r.inspectorId,
     inspectDate: r.inspectDate, areaId: r.areaId,
-    items: jsonArrOf<InspectionItem>(r.items), createdAt: num(r.createdAt),
+    items: jsonArrOf<InspectionItem>(r.items), createdAt: ts(r.createdAt),
   };
 }
 
@@ -318,7 +318,7 @@ export function createDutyRepos(rest: RestDb): DutyRepos {
       const row = {
         id, campusId: input.campusId, inspectorId: input.inspectorId,
         inspectDate: input.inspectDate, areaId: input.areaId, items: input.items,
-        createdAt: Date.now(),
+        createdAt: nowIso(),
       };
       await inspectionsT.insert(row);
       const rows = await inspectionsT.select({ id }, { limit: 1 });
@@ -348,7 +348,7 @@ export function createDutyRepos(rest: RestDb): DutyRepos {
         applicantId: input.applicantId, applicantScheduleId: input.applicantScheduleId, applicantDate: input.applicantDate,
         targetId: input.targetId, targetScheduleId: input.targetScheduleId ?? null, targetDate: input.targetDate ?? null,
         reason: input.reason, status: 'pending' as const, reviewerId: null, reviewComment: null,
-        createdAt: Date.now(), reviewedAt: null,
+        createdAt: nowIso(), reviewedAt: null,
       };
       await swapsT.insert(row);
       const rows = await swapsT.select({ id }, { limit: 1 });

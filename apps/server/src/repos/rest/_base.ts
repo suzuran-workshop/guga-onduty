@@ -58,6 +58,29 @@ export function num(v: unknown): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
+/**
+ * timestamptz 列写入值：PostgREST 拒收 epoch number（400 / 22008 invalid_datetime_format），
+ * 必须给 ISO 字符串。仅用于 pg 侧 timestamp with time zone 列（campuses/dutyInspections/dutySwaps.createdAt）；
+ * epochMs(bigint) 列（checkedInAt/reviewedAt）仍写 Date.now() 数值。
+ */
+export function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/**
+ * timestamptz 列读取归一：PostgREST 返回 ISO 字符串，wire 契约是 epoch ms number。
+ * 数字直通；ISO 串 Date.parse；纯数字串 Number；无法解析 → 0。
+ */
+export function ts(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'bigint') return Number(v);
+  const n = Number(v);
+  if (!Number.isNaN(n)) return n;
+  const d = Date.parse(String(v));
+  return Number.isNaN(d) ? 0 : d;
+}
+
 /** JSON 列解析（rest 轨 JSON 列以 text 存，PostgREST 返回字符串或已解析对象，两者都兜底） */
 export function jsonArr(v: unknown): string[] | null {
   if (v === null || v === undefined) return null;
