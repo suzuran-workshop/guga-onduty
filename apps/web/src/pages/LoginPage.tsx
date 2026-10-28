@@ -102,14 +102,14 @@ export default function LoginPage() {
                   <span className="bg-card px-2 text-muted-foreground">{t('auth.or')}</span>
                 </div>
               </div>
-              {/* 免账密扫码：SDK GET /auth/oauth2/authorize → 302 oauth2-dingtalk → 回调建会话。
-                  仅 oauth2_identity_links 已绑定的用户可登录（JIT 关闭，未绑定引导联系管理员）。 */}
+              {/* 免账密扫码：SDK GET /auth/oidc/authorize → 302 oidc-dingtalk → 回调建会话。
+                  通讯录命中即自动建号（JIT；oidc_identity_links 绑定，未在通讯定引导联系管理员）。 */}
               <Button
                 type="button"
                 variant="outline"
                 className="w-full"
                 onClick={() => {
-                  window.location.href = `${APP_BASE}/auth/oauth2/authorize?returnTo=${encodeURIComponent(APP_BASE + from)}`;
+                  window.location.href = `${APP_BASE}/auth/oidc/authorize?returnTo=${encodeURIComponent(APP_BASE + from)}`;
                 }}
               >
                 {t('auth.dingtalkLogin')}

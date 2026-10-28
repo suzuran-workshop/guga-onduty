@@ -10,7 +10,7 @@
  *  - CORS 硬编码 localhost → 读 CORS_ORIGINS env。
  *  - 无 onError（DELETE 外键错误直接 500 泄栈）→ 统一 ApiError 转 JSON，未知错误不泄栈。
  *  - 无静态托管/SPA fallback（前端要单独部署）→ app-kit staticDir 提供，生产同源托管。
- *  - healthz 由 app-kit 按形态注册（standalone /healthz，qw-pages /_healthz），带 db 探活。
+ *  - healthz 由 app-kit 注册（/healthz），带 db 探活。
  */
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -94,7 +94,6 @@ export function buildApp(opts: BuildAppOptions): HomuraApp {
   };
 
   return createApp({
-    runtime: (cfg.get('runtime') as 'standalone' | 'qw-pages' | undefined) || 'auto',
     logger: kitLogger,
     auth: {
       sessions: auth.sessions,
@@ -102,7 +101,7 @@ export function buildApp(opts: BuildAppOptions): HomuraApp {
       authRoutes: auth.authRoutes,
     },
     storage,
-    db: handle.kind === 'drizzle' ? (handle.db as unknown as Record<string, unknown>) : undefined,
+    db: handle.db as unknown as Record<string, unknown>,
     healthz: {
       checks: [{ name: 'db', check: () => pingDb(handle) }],
     },

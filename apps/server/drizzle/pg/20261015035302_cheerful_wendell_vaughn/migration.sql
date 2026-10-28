@@ -1,4 +1,4 @@
-CREATE TABLE "oauth2_identity_links" (
+CREATE TABLE "oidc_identity_links" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 	"user_id" text NOT NULL,
 	"provider" text NOT NULL,
@@ -153,8 +153,8 @@ CREATE TABLE "userProfiles" (
 	CONSTRAINT "user_profiles_role_check" CHECK (role IN ('admin', 'teacher', 'student'))
 );
 --> statement-breakpoint
-CREATE INDEX "oauth2_links_user_idx" ON "oauth2_identity_links" ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "oauth2_links_provider_sub_uidx" ON "oauth2_identity_links" ("provider","provider_sub");--> statement-breakpoint
+CREATE INDEX "oidc_links_user_idx" ON "oidc_identity_links" ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "oidc_links_provider_sub_uidx" ON "oidc_identity_links" ("provider","provider_sub");--> statement-breakpoint
 CREATE INDEX "refresh_tokens_family_idx" ON "refresh_tokens" ("family_id");--> statement-breakpoint
 CREATE INDEX "refresh_tokens_sub_idx" ON "refresh_tokens" ("sub");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_username_uidx" ON "users" ("username");--> statement-breakpoint

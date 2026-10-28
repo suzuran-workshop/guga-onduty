@@ -7,8 +7,8 @@
  *  2. dedupeKey 幂等：同 key 二次 create 返回 null（重复触发安全）。
  *  3. 令牌一次性原子消费：consume 二次返回 consumed；过期返回 expired。
  *  4. 管理面 RBAC：teacher 访问 /dingtalk/* 一律 403。
- *  5. OAuth2 路由按配置挂载：凭证未配 → /auth/oauth2/authorize 404；
- *     配齐 → 302 到 IdP authorize URL（dingtalkOAuth 预设）。
+ *  5. OIDC 路由按配置挂载：凭证未配 → /auth/oidc/authorize 404；
+ *     配齐 → 302 到 IdP authorize URL（dingtalkOidc 预设）。
  *  6. 绑定前置校验：dingtalkUserId 必须在通讯录缓存中；同一联系人不能绑两个用户。
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -23,11 +23,11 @@ let h2: Harness; // oauth 启用形态（第二实例验证路由挂载差异）
 beforeAll(async () => {
   h = await boot('dingtalk');
   await seedStandard(h);
-  // 第二实例：配齐 OAUTH_* 凭证 → /auth/oauth2/* 应挂载
+  // 第二实例：配齐 OAUTH_* 凭证 → /auth/oidc/* 应挂载
   process.env.OAUTH_DINGTALK_ORG_ID = 'org-test';
   process.env.OAUTH_CLIENT_ID = 'cid';
   process.env.OAUTH_CLIENT_SECRET = 'csec';
-  process.env.OAUTH_REDIRECT_URI = 'http://localhost:5173/auth/oauth2/callback';
+  process.env.OAUTH_REDIRECT_URI = 'http://localhost:5173/auth/oidc/callback';
   h2 = await boot('dingtalk-oauth');
   delete process.env.OAUTH_DINGTALK_ORG_ID;
   delete process.env.OAUTH_CLIENT_ID;
@@ -84,21 +84,21 @@ describe('公开探测端点（免登录）', () => {
     expect(r.json.data.oauthLogin).toBe(false);
   });
 
-  it('OAUTH_* 配齐的实例：oauthLogin:true 且 /auth/oauth2/authorize 302 到 IdP', async () => {
+  it('OAUTH_* 配齐的实例：oauthLogin:true 且 /auth/oidc/authorize 302 到 IdP', async () => {
     const r = await h2.client().req('GET', '/api/public/dingtalk/status');
     expect(r.json.data.oauthLogin).toBe(true);
 
-    const a = await h2.client().req('GET', '/auth/oauth2/authorize');
+    const a = await h2.client().req('GET', '/auth/oidc/authorize');
     expect(a.status).toBe(302);
     const loc = a.res.headers.get('location') ?? '';
-    // dingtalkOAuth 预设：authorize URL = <base>/<orgId>/authorize（缺省 base dingtalk.auth.xrl.im）
-    expect(loc).toContain('https://dingtalk.auth.xrl.im/org-test/authorize');
+    // dingtalkOidc 预设：authorize URL = <base>/<orgId>/authorize（缺省 base dingtalk.auth.ahkdxx.cn）
+    expect(loc).toContain('https://dingtalk.auth.ahkdxx.cn/org-test/authorize');
     expect(loc).toContain('client_id=cid');
     expect(loc).toContain('redirect_uri=');
   });
 
-  it('凭证未配的实例：/auth/oauth2/authorize → 404（路由未挂载）', async () => {
-    const r = await h.client().req('GET', '/auth/oauth2/authorize');
+  it('凭证未配的实例：/auth/oidc/authorize → 404（路由未挂载）', async () => {
+    const r = await h.client().req('GET', '/auth/oidc/authorize');
     expect([404, 401]).toContain(r.status); // 未挂载 → SPA fallback 404
   });
 });

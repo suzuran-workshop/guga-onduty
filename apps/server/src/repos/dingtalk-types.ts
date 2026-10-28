@@ -2,7 +2,6 @@
  * 钉钉域 repo 契约 —— 通讯录缓存 / 通知日志 / 免登录令牌。
  *
  * 自 guga-onduty-w 移植（基建）。分层原则同 duty-types.ts：repo 只负责「取行/写行」。
- * rest 轨（qw-pages）无事务/无 upsert，best-effort 补偿（见 rest/dingtalk-repo.ts）。
  */
 import type {
   DingtalkContact, DingtalkContactInput, NotificationLog, NotificationLogInput, NotificationLogPatch,

@@ -7,7 +7,7 @@
   ],
   "ddl": [
     {
-      "name": "oauth2_identity_links",
+      "name": "oidc_identity_links",
       "entityType": "tables"
     },
     {
@@ -74,7 +74,7 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -84,7 +84,7 @@
       "generated": null,
       "name": "user_id",
       "entityType": "columns",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -94,7 +94,7 @@
       "generated": null,
       "name": "provider",
       "entityType": "columns",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -104,7 +104,7 @@
       "generated": null,
       "name": "provider_sub",
       "entityType": "columns",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -114,7 +114,7 @@
       "generated": null,
       "name": "raw_profile",
       "entityType": "columns",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "integer",
@@ -124,7 +124,7 @@
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -1121,8 +1121,8 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "oauth2_identity_links_pk",
-      "table": "oauth2_identity_links",
+      "name": "oidc_identity_links_pk",
+      "table": "oidc_identity_links",
       "entityType": "pks"
     },
     {
@@ -1261,9 +1261,9 @@
       "isUnique": false,
       "where": null,
       "origin": "manual",
-      "name": "oauth2_links_user_idx",
+      "name": "oidc_links_user_idx",
       "entityType": "indexes",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "columns": [
@@ -1279,9 +1279,9 @@
       "isUnique": true,
       "where": null,
       "origin": "manual",
-      "name": "oauth2_links_provider_sub_uidx",
+      "name": "oidc_links_provider_sub_uidx",
       "entityType": "indexes",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "columns": [

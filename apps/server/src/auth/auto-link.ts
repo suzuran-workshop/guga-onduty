@@ -3,7 +3,7 @@
  *
  * 产品流程（admin 零人工）：管理员同步钉钉通讯录 → 老师扫码 → 钉钉 userid 精确命中
  * 通讯录 → 自动创建系统账号（username=钉钉 userid，displayName=通讯录姓名，默认校区 +
- * teacher 角色）→ 写 oauth2_identity_links 绑定 → 登录。此后扫码按绑定表 userid 精确命中，
+ * teacher 角色）→ 写 oidc_identity_links 绑定 → 登录。此后扫码按绑定表 userid 精确命中，
  * 不再走建户路径。
  *
  * 匹配键就是 userid 本身（IdP 的 sub=企业 userid，通讯录主键=userid，天然精确对应），
@@ -11,13 +11,12 @@
  *
  * fail-closed 边界：
  *  - 不在通讯录（外部人员/已离职/家校群）→ 拒绝，绝不建户；
- *  - JIT 建的账号固定 teacher + 默认校区，提权必须 admin 在管理面手工调整；
- *  - rest 轨（qw-pages）无通讯录缓存，维持拒绝。
+ *  - JIT 建的账号固定 teacher + 默认校区，提权必须 admin 在管理面手工调整。
  *
  * 返回 LocalUser 表示可登录；返回字符串为拒绝原因（仅进服务端日志，严禁透出到用户页面）。
  */
 import { eq, asc } from 'drizzle-orm';
-import type { OAuth2LinkStore, UserStore, LocalUser } from '@homurajs/auth';
+import type { OidcLinkStore, UserStore, LocalUser } from '@homurajs/auth';
 import type { DrizzleHandle } from '../db/client.js';
 import type { Logger } from '@homurajs/core';
 
@@ -34,11 +33,10 @@ export function isJitBlock(r: JitResult): r is JitBlock {
 
 /**
  * 通讯录命中 → 建户 + 绑定（幂等：账号已存在则复用，绑定已存在则复用）。
- * 仅 drizzle 轨（sqlite/pg）可用——rest 轨无通讯录缓存，维持 fail-closed。
  */
 export async function jitProvision(
   handle: DrizzleHandle,
-  stores: { linkStore: OAuth2LinkStore; userStore: UserStore },
+  stores: { linkStore: OidcLinkStore; userStore: UserStore },
   provider: string,
   providerSub: string,
   logger?: Logger,

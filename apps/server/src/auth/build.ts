@@ -1,19 +1,18 @@
 /**
- * 认证装配 —— @homurajs/auth 的 SessionManager + PasswordProvider + SDK 路由 + OAuth2 扫码登录。
+ * 认证装配 —— @homurajs/auth 的 SessionManager + PasswordProvider + SDK 路由 + OIDC 扫码登录。
  *
  * 身份模型（docs/MIGRATION-HOMURA.md §2.2）：
  *  - auth SDK 的 `users`/`passwords`/`refresh_tokens` 表管「你是谁」（uuid 身份锚点 + scrypt 密码）。
  *  - 业务 `userProfiles` 表管「你能做什么」（role / campusId / displayName）。
  *  - session.sub = users.id(uuid)；业务中间件 requireProfile 再查 userProfiles 补角色/校区。
  *
- * store 按数据方言选（drizzle 版 for sqlite/pg，rest 版 for qw-pages），接口语义严格对齐。
- *
  * 登录双通道：
  *  - 账密：SDK `POST /auth/password/login`（scrypt 校验 + 下发 access/refresh cookie）。
- *  - 钉钉扫码：SDK `GET /auth/oauth2/authorize` → oauth2-dingtalk IdP → 回调建会话。
- *    配置 OAUTH_DINGTALK_ORG_ID + OAUTH_CLIENT_ID/SECRET + OAUTH_REDIRECT_URI 即启用。
- *    IdentityResolver 为自定义实现：① 显式绑定（oauth2_identity_links）优先放行；
- *    ② 无绑定时 **JIT 建户**（drizzle 轨，见 auth/auto-link.ts）：IdP sub（钉钉企业 userid）
+ *  - 钉钉扫码：SDK `GET /auth/oidc/authorize` → oidc-dingtalk IdP（v2.0.0，标准 OIDC Provider）→
+ *    回调建会话。配置 OAUTH_DINGTALK_ORG_ID + OAUTH_CLIENT_ID/SECRET + OAUTH_REDIRECT_URI 即启用。
+ *    客户端强制 id_token 验签（HS256，密钥=clientSecret）+ userinfo.sub 交叉核对——信任锚是签名。
+ *    IdentityResolver 为自定义实现：① 显式绑定（oidc_identity_links）优先放行；
+ *    ② 无绑定时 **JIT 建户**（见 auth/auto-link.ts）：IdP sub（钉钉企业 userid）
  *    精确命中通讯录缓存 → 自动建系统账号（username=userid，displayName=通讯录姓名，
  *    默认校区 + teacher 角色）→ 写绑定 → 放行。「通讯录即账号白名单」——admin 零人工，
  *    只需同步通讯录；不在通讯录 → IdentityNotLinkedError（fail-closed），但对外渲染中文
@@ -30,44 +29,40 @@ import {
   createDrizzleSessionStore,
   createDrizzleUserStore,
   createDrizzlePasswordStore,
-  createDrizzleOAuth2LinkStore,
-  createRestSessionStore,
-  createRestUserStore,
-  createRestPasswordStore,
-  createRestOAuth2LinkStore,
-  OAuth2Client,
+  createDrizzleOidcLinkStore,
+  OidcClient,
   IdentityNotLinkedError,
   type UserStore,
-  type OAuth2LinkStore,
+  type OidcLinkStore,
   type IdentityResolver,
   type LocalUser,
 } from '@homurajs/auth';
 import { createAuthRoutes, sessionMiddleware } from '@homurajs/auth/hono';
 import { createMemoryTtlKv, type Logger } from '@homurajs/core';
-import { dingtalkOAuth } from '@homurajs/3p/dingtalk';
+import { dingtalkOidc } from '@homurajs/3p/dingtalk';
 
 import type { DbHandle } from '../db/client.js';
 import type { AppConfig } from '../config.js';
 import { jitProvision, isJitBlock } from './auto-link.js';
 
-/** 钉钉在 oauth2_identity_links 里的 provider 标识（绑定路由与解析共用） */
+/** 钉钉在 oidc_identity_links 里的 provider 标识（绑定路由与解析共用） */
 export const DINGTALK_PROVIDER = 'dingtalk';
 
 export interface AuthBundle {
   sessions: SessionManager;
   sessionMiddleware: MiddlewareHandler;
-  /** SDK 路由：/auth/password/login、/auth/oauth2/authorize、/auth/refresh、/auth/logout（挂到根，非 /api/v1） */
+  /** SDK 路由：/auth/password/login、/auth/oidc/authorize、/auth/refresh、/auth/logout（挂到根，非 /api/v1） */
   authRoutes: Hono;
   /** 业务建号用（admin 创建用户）：register 建 user+password，profile 另建 */
   passwordProvider: PasswordProvider;
   userStore: UserStore;
   /**
-   * OAuth2 身份关联存储（oauth2_identity_links 表）。
+   * IdP 身份关联存储（oidc_identity_links 表）。
    * 用途：① 钉钉扫码登录的 IdentityResolver 查绑定；② 管理面「用户 ↔ 钉钉 userid」绑定；
    * ③ 钉钉域身份解析（resolveDingtalkUserId）。
    */
-  linkStore: OAuth2LinkStore;
-  /** 钉钉扫码登录是否已启用（凭证齐备才挂 /auth/oauth2/*） */
+  linkStore: OidcLinkStore;
+  /** 钉钉扫码登录是否已启用（凭证齐备才挂 /auth/oidc/*） */
   oauthEnabled: boolean;
 }
 
@@ -83,20 +78,10 @@ export interface BuildAuthOptions {
 export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptions): AuthBundle {
   const secret = cfg.get('sessionSecret');
 
-  // store 按方言选：drizzle(sqlite/pg) vs rest(qw-pages)
-  const isRest = handle.kind === 'rest';
-  const sessionStore = isRest
-    ? createRestSessionStore(handle.rest)
-    : createDrizzleSessionStore(handle.db as never);
-  const userStore = isRest
-    ? createRestUserStore(handle.rest)
-    : createDrizzleUserStore(handle.db as never);
-  const passwordStore = isRest
-    ? createRestPasswordStore(handle.rest)
-    : createDrizzlePasswordStore(handle.db as never);
-  const linkStore = isRest
-    ? createRestOAuth2LinkStore(handle.rest)
-    : createDrizzleOAuth2LinkStore(handle.db as never);
+  const sessionStore = createDrizzleSessionStore(handle.db as never);
+  const userStore = createDrizzleUserStore(handle.db as never);
+  const passwordStore = createDrizzlePasswordStore(handle.db as never);
+  const linkStore = createDrizzleOidcLinkStore(handle.db as never);
 
   const sessions = new SessionManager({ secret }, sessionStore);
   const passwordProvider = new PasswordProvider({ userStore, passwordStore });
@@ -110,20 +95,20 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
   const oauthRedirectUri = cfg.get('oauthRedirectUri');
   const oauthEnabled = Boolean(oauthOrgId && oauthClientId && oauthClientSecret && oauthRedirectUri);
 
-  let oauth2: Parameters<typeof createAuthRoutes>[0]['oauth2'];
+  let oidc: Parameters<typeof createAuthRoutes>[0]['oidc'];
   if (oauthEnabled) {
-    // 3p 的 dingtalkOAuth 预设：endpoints + mapUser（oauth2-dingtalk userinfo → AuthUser）
-    const preset = dingtalkOAuth({ orgId: oauthOrgId!, baseUrl: cfg.get('oauthDingtalkBaseUrl') || undefined });
-    const client = new OAuth2Client({
+    // 3p 的 dingtalkOidc 预设：issuer + endpoints + mapUser（oidc-dingtalk userinfo → AuthUser）
+    const preset = dingtalkOidc({ orgId: oauthOrgId!, baseUrl: cfg.get('oauthDingtalkBaseUrl') || undefined });
+    const client = new OidcClient({
       clientId: oauthClientId!,
-      clientSecret: oauthClientSecret!,
+      clientSecret: oauthClientSecret!, // 兼作 id_token HS256 验签密钥
       redirectUri: oauthRedirectUri!,
-      endpoints: preset.endpoints,
-      mapUser: preset.mapUser,
-      // state 一次性消费（5min TTL，防 CSRF）；内存 KV（多实例部署需换 db/redis 实现）
+      scopes: ['openid'],
       stateKv: createMemoryTtlKv(),
+      // state 一次性消费（5min TTL，防 CSRF）；内存 KV（多实例部署需换 db/redis 实现）
+      ...preset,
     });
-    // 自定义 IdentityResolver：显式绑定优先；无绑定时 drizzle 轨 JIT 建户（userid 命中
+    // 自定义 IdentityResolver：显式绑定优先；无绑定时 JIT 建户（userid 命中
     // 通讯录即建号+绑定+登录）；不在通讯录抛 IdentityNotLinkedError（SDK 转 JSON，再由
     // 下方包装中间件改写成友好页），绝不放行白名单之外的人。
     const identityResolver: IdentityResolver = {
@@ -133,7 +118,7 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
           const user = await userStore.findById(link.userId);
           if (user) return user;
         }
-        if (handle.kind === 'drizzle' && provider === DINGTALK_PROVIDER) {
+        if (provider === DINGTALK_PROVIDER) {
           const result = await jitProvision(
             handle,
             { linkStore, userStore },
@@ -142,7 +127,7 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
             opts.logger,
           );
           if (!isJitBlock(result)) return result;
-          opts.logger?.warn('oauth2 login blocked (jit provision failed)', {
+          opts.logger?.warn('oidc login blocked (jit provision failed)', {
             provider,
             reason: result,
             providerSub,
@@ -151,37 +136,37 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
         throw new IdentityNotLinkedError(provider, providerSub);
       },
     };
-    oauth2 = { client, identityResolver, provider: DINGTALK_PROVIDER };
+    oidc = { client, identityResolver, provider: DINGTALK_PROVIDER };
   }
 
   const authRoutes = createAuthRoutes({
     sessions,
     password: passwordProvider,
-    oauth2, // 未配置凭证时为 undefined → 不挂 OAuth2 路由
+    oidc, // 未配置凭证时为 undefined → 不挂 OIDC 路由
     allowRegister: false, // 值班系统：admin 建号，禁自助注册
     secure: opts.secure,
   });
 
-  // 包装 SDK 路由：OAuth2 回调的失败响应（SDK 硬编码 JSON 403/401）改写为中文友好 HTML——
+  // 包装 SDK 路由：OIDC 回调的失败响应（SDK 硬编码 JSON 403/401）改写为中文友好 HTML——
   // 扫码登录的主要用户是非技术人员，裸 JSON（含 provider/sub 技术细节）只会引发恐慌。
   // 原始错误体仍打到服务端日志便于排查。账密等 JSON API 不受影响。
   const wrappedAuthRoutes = new Hono();
-  wrappedAuthRoutes.use('/auth/oauth2/callback', async (c, next) => {
+  wrappedAuthRoutes.use('/auth/oidc/callback', async (c, next) => {
     await next();
     const res = c.res;
     if (res.status !== 403 && res.status !== 401) return;
     if (!(res.headers.get('content-type') ?? '').includes('application/json')) return;
     const raw = await res.text();
-    console.error('[oauth2/callback] login rejected:', raw.slice(0, 500));
+    console.error('[oidc/callback] login rejected:', raw.slice(0, 500));
     let body: { error?: string } | null = null;
     try {
       body = JSON.parse(raw);
     } catch {
-      /* 非 JSON 兜底按 oauth_failed 处理 */
+      /* 非 JSON 兜底按 oidc_failed 处理 */
     }
     const kind = body?.error === 'identity_not_linked' ? 'not_linked' : 'failed';
     // 「返回登录」目标：优先从 redirectUri 推导 SPA 部署前缀（子路径部署下 /login 会 404）
-    const base = (cfg.get('oauthRedirectUri') || '').replace(/\/auth\/oauth2\/callback$/, '');
+    const base = (cfg.get('oauthRedirectUri') || '').replace(/\/auth\/oidc\/callback$/, '');
     const backTo = (base || opts.loginPath) + (base ? '/login' : '');
     c.res = new Response(oauthErrorHtml(kind, backTo), {
       status: res.status,
@@ -194,8 +179,8 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
 }
 
 /**
- * OAuth2 登录失败友好页（中文、无技术细节、无 provider/sub）。
- * kind=not_linked：钉钉身份未关联到系统账号（不在学校通讯录 / rest 轨无通讯录）；
+ * OIDC 登录失败友好页（中文、无技术细节、无 provider/sub）。
+ * kind=not_linked：钉钉身份未关联到系统账号（不在学校通讯录）；
  * kind=failed：登录过程异常（重试即可，多次失败找管理员）。
  */
 function oauthErrorHtml(kind: 'not_linked' | 'failed', backTo: string): string {

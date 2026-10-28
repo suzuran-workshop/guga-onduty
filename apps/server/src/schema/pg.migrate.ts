@@ -13,5 +13,5 @@ import { pgAuthTables } from '@homurajs/auth/tables';
 export const users = pgAuthTables.users;
 export const passwords = pgAuthTables.passwords;
 export const refreshTokens = pgAuthTables.refreshTokens;
-export const oauth2IdentityLinks = pgAuthTables.oauth2IdentityLinks;
+export const oidcIdentityLinks = pgAuthTables.oidcIdentityLinks;
 export const webauthnCredentials = pgAuthTables.webauthnCredentials;

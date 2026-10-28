@@ -9,5 +9,5 @@ import { sqliteAuthTables } from '@homurajs/auth/tables';
 export const users = sqliteAuthTables.users;
 export const passwords = sqliteAuthTables.passwords;
 export const refreshTokens = sqliteAuthTables.refreshTokens;
-export const oauth2IdentityLinks = sqliteAuthTables.oauth2IdentityLinks;
+export const oidcIdentityLinks = sqliteAuthTables.oidcIdentityLinks;
 export const webauthnCredentials = sqliteAuthTables.webauthnCredentials;

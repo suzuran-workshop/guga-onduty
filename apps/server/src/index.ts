@@ -1,7 +1,7 @@
 /**
  * standalone 入口 —— 独立部署形态（sqlite/pg + local-fs storage）。
  *
- * RuntimeAdapter（createNodeAdapter）收口形态差异：
+ * RuntimeAdapter（createNodeAdapter）：assetsDir/trustProxy/启动监听。
  *  - start(app, {port})：读 PORT/HOST，@hono/node-server 监听，支持 AbortSignal 优雅关闭。
  *  - trustProxy()：standalone 由 TRUST_PROXY=1 开启 → 接到 auth cookie 的 secure 选项。
  *  - assetsDir(env)：前端静态资源目录（缺省 dist/client）→ 接到 createApp 的 staticDir。
@@ -24,7 +24,6 @@ async function main() {
 
   await adapter.start(homura.app, { port, signal: ac.signal });
   logger.info('校园值班应用服务端已启动', {
-    runtime: homura.runtime.target,
     port,
     secure,
     staticDir,

@@ -6,7 +6,7 @@
  *   buildAuth(SessionManager+PasswordProvider+SDK路由) → createRepos(注入 auth 依赖) →
  *   buildStorage(local-fs) → buildApp(app-kit createApp)
  *
- * secure 由 adapter.trustProxy() 接线（qw-pages 恒 true，standalone 由 TRUST_PROXY=1）。
+ * secure 由 adapter.trustProxy() 接线（TRUST_PROXY=1）。
  */
 import type { HomuraApp } from '@homurajs/app-kit';
 import type { Logger } from '@homurajs/core';
@@ -18,7 +18,6 @@ import type { Repos } from './repos/types.js';
 import { buildStorage } from './storage/build.js';
 import type { FileStorage } from '@homurajs/storage';
 import { buildApp } from './app.js';
-import { seedRest } from './repos/rest/seed.js';
 import { buildPlatform, type PlatformBundle } from './platform/build.js';
 import { createNotifyService, type NotifyService } from './services/notify.js';
 
@@ -64,12 +63,6 @@ export async function bootstrap(opts: BootstrapOptions): Promise<Bootstrapped> {
     passwordProvider: auth.passwordProvider,
     userStore: auth.userStore,
   });
-
-  // rest 轨（qw-pages）幂等种子：默认校区 + admin + semester_start（drizzle 轨种子仍走 db:seed 脚本）
-  if (handle.kind === 'rest') {
-    const s = await seedRest(handle.rest);
-    if (s.seeded) logger.info('rest seed inserted', { adminUserId: s.adminUserId, campusId: s.campusId });
-  }
 
   const storage = buildStorage(cfg, handle, logger);
 

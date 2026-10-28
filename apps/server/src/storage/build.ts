@@ -1,35 +1,22 @@
 /**
- * 对象存储装配 —— 双后端：standalone 走 local-fs，qw-pages（rest 轨）走 DB 分块存储。
+ * 对象存储装配 —— local-fs 后端（standalone）。
  *
  * 迁移要点：
  *  - 图片统一走 storage.uploadFile + /files/<key> 代理（objectKey 存表，非自造相对路径）。
  *  - 值班域两个命名空间：duty-checkin（执勤打卡照片）、duty-inspect（巡查照片）。
  *
- * 形态边界：
- *  - standalone（sqlite/pg）：local-fs 后端（rootDir 可写）。
- *  - qw-pages（rest 轨）：应用根只读，改用 @homurajs/storage ./db 的 createRestFileStore ——
- *    把二进制以 base64 分块写进 Postgres（homura_files 清单表 + homura_file_chunks 块表），
- *    绕开 PostgREST 单值 ~1MB 限制；照片随库持久，跨发布不清空。
- *    （前置：两表须由平台受控迁移预建并授权 anon 角色；见 migration / @homurajs/storage/tables。）
  */
 import type { FileStorage } from '@homurajs/storage';
 import { createLocalStorage } from '@homurajs/storage/local';
-import { createRestFileStore } from '@homurajs/storage/db';
 import { createFileProxyRoutes } from '@homurajs/storage/proxy';
 import { Hono } from 'hono';
 import type { AppConfig } from '../config.js';
 import type { DbHandle } from '../db/client.js';
 
 /**
- * 构造存储后端。
- *  - standalone（sqlite/pg）：local-fs，rootDir 取 STORAGE_ROOT（缺省 ./data/files）。
- *  - qw-pages（rest 轨）：createRestFileStore(handle.rest)，DB 分块持久化（表由平台迁移预建）。
+ * 构造存储后端：local-fs，rootDir 取 STORAGE_ROOT（缺省 ./data/files）。
  */
 export function buildStorage(cfg: AppConfig, handle: DbHandle, logger?: { warn: (m: string, f?: any) => void; info?: (m: string, f?: any) => void }): FileStorage {
-  if (handle.kind === 'rest') {
-    logger?.info?.('storage: rest 轨使用 DB 分块后端（homura_files / homura_file_chunks）');
-    return createRestFileStore(handle.rest);
-  }
   return createLocalStorage({ rootDir: cfg.get('storageRoot') });
 }
 

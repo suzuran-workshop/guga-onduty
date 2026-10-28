@@ -4,21 +4,15 @@
  * 修复现有缺陷：JWT_SECRET 硬编码 fallback（生产不设 env 即用公开弱密钥）→
  * SESSION_SECRET 设为 required，缺失即 fail fast（启动期抛错，不带病上线）。
  *
- * 加载顺序（core README 硬约束）：applyEnvFile(process.env) 必须在 load() 之前，
- * 以便 qw-pages 形态从随产物携带的 homura.config.env 注入密钥。
+ * 加载顺序（core README 硬约束）：applyEnvFile(process.env) 必须在 load() 之前。
  */
 import { defineConfig, parses, applyEnvFile, createLogger } from '@homurajs/core';
 
-/** 部署期配置文件并入 env（真实 env 优先；qw-pages 密钥随产物携带的唯一入口） */
+/** 部署期配置文件并入 env（真实 env 优先） */
 applyEnvFile(process.env);
 
 const config = defineConfig({
-  // ── 运行形态与监听 ──
-  runtime: {
-    env: 'HOMURA_RUNTIME',
-    parse: parses.string,
-    description: "运行形态：'standalone' | 'qw-pages'；缺省自动探测",
-  },
+  // ── 监听 ──
   port: { env: 'PORT', default: 3000, parse: parses.int, description: '监听端口' },
   host: { env: 'HOST', parse: parses.string, description: '监听地址（缺省 0.0.0.0）' },
   trustProxy: {
@@ -28,12 +22,12 @@ const config = defineConfig({
     description: '是否在反向代理后（决定 cookie Secure 与 X-Forwarded-* 可信度）',
   },
 
-  // ── 数据方言（三轨）──
+  // ── 数据方言 ──
   dbDialect: {
     env: 'DB_DIALECT',
     default: 'sqlite',
     parse: parses.string,
-    description: "数据方言：'sqlite' | 'pg' | 'rest'（缺省 sqlite）",
+    description: "数据方言：'sqlite' | 'pg'（缺省 sqlite）",
   },
   dbPath: {
     env: 'DB_PATH',
@@ -46,17 +40,6 @@ const config = defineConfig({
     parse: parses.string,
     secret: true,
     description: 'PostgreSQL 连接串（dialect=pg 时必填）',
-  },
-  supabaseUrl: {
-    env: 'SUPABASE_URL',
-    parse: parses.string,
-    description: 'PostgREST/Supabase URL（dialect=rest 时必填；qw-pages 自动注入）',
-  },
-  supabaseAnonKey: {
-    env: 'SUPABASE_ANON_KEY',
-    parse: parses.string,
-    secret: true,
-    description: 'Supabase anon key（dialect=rest 时必填）',
   },
 
   // ── 认证（@homurajs/auth SessionManager）──
@@ -80,7 +63,7 @@ const config = defineConfig({
   assetsDir: {
     env: 'HOMURA_ASSETS_DIR',
     parse: parses.string,
-    description: '前端静态资源目录（缺省由 RuntimeAdapter.assetsDir 按形态算）',
+    description: '前端静态资源目录（缺省 RuntimeAdapter.assetsDir：HOMURA_ASSETS_DIR ?? dist/client）',
   },
   corsOrigins: {
     env: 'CORS_ORIGINS',
@@ -111,28 +94,28 @@ const config = defineConfig({
   oauthDingtalkOrgId: {
     env: 'OAUTH_DINGTALK_ORG_ID',
     parse: parses.string,
-    description: 'oauth2-dingtalk 组织标识（配置即启用钉钉扫码登录，教师免账密）',
+    description: 'oidc-dingtalk 组织标识（配置即启用钉钉扫码登录，教师免账密）',
   },
   oauthDingtalkBaseUrl: {
     env: 'OAUTH_DINGTALK_BASE_URL',
     parse: parses.string,
-    description: 'oauth2-dingtalk 部署地址（缺省线上 dingtalk.auth.xrl.im）',
+    description: 'oidc-dingtalk 部署地址（缺省线上 dingtalk.auth.ahkdxx.cn）',
   },
   oauthClientId: {
     env: 'OAUTH_CLIENT_ID',
     parse: parses.string,
-    description: 'OAuth2 客户端 id（oauth2-dingtalk 侧登记；与 OAUTH_CLIENT_SECRET 配齐才挂登录路由）',
+    description: 'OIDC 客户端 id（= 钉钉 AppKey；与 OAUTH_CLIENT_SECRET 配齐才挂登录路由）',
   },
   oauthClientSecret: {
     env: 'OAUTH_CLIENT_SECRET',
     parse: parses.string,
     secret: true,
-    description: 'OAuth2 客户端密钥',
+    description: 'OIDC 客户端密钥（= 钉钉 AppSecret，兼作 id_token HS256 验签密钥）',
   },
   oauthRedirectUri: {
     env: 'OAUTH_REDIRECT_URI',
     parse: parses.string,
-    description: 'OAuth2 回调地址（本地开发须写 :5173 走 Vite proxy，否则 cookie 落错域）',
+    description: 'OIDC 回调地址（…/auth/oidc/callback；本地开发须写 :5173 走 Vite proxy，否则 cookie 落错域）',
   },
 
   // ── 日志 ──

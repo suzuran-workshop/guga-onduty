@@ -8,7 +8,7 @@
   "ddl": [
     {
       "isRlsEnabled": false,
-      "name": "oauth2_identity_links",
+      "name": "oidc_identity_links",
       "entityType": "tables",
       "schema": "public"
     },
@@ -107,7 +107,7 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -120,7 +120,7 @@
       "name": "user_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -133,7 +133,7 @@
       "name": "provider",
       "entityType": "columns",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -146,7 +146,7 @@
       "name": "provider_sub",
       "entityType": "columns",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -159,7 +159,7 @@
       "name": "raw_profile",
       "entityType": "columns",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "bigint",
@@ -172,7 +172,7 @@
       "name": "created_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "type": "text",
@@ -1477,10 +1477,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "oauth2_links_user_idx",
+      "name": "oidc_links_user_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "nameExplicit": true,
@@ -1505,10 +1505,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "oauth2_links_provider_sub_uidx",
+      "name": "oidc_links_provider_sub_uidx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "oauth2_identity_links"
+      "table": "oidc_identity_links"
     },
     {
       "nameExplicit": true,
@@ -2068,9 +2068,9 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "oauth2_identity_links_pkey",
+      "name": "oidc_identity_links_pkey",
       "schema": "public",
-      "table": "oauth2_identity_links",
+      "table": "oidc_identity_links",
       "entityType": "pks"
     },
     {

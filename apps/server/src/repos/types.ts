@@ -3,7 +3,6 @@
  *
  * 路由层只依赖这些接口，不碰 drizzle/rest/SQL 细节。三轨装配（repos/index.ts）：
  *  - drizzle 实现覆盖 sqlite + pg（表对象按方言注入，同一份源码）
- *  - rest 实现覆盖 qw-pages（PostgREST API）
  *
  * 通用约定：
  *  - 所有 id 为 uuid string。

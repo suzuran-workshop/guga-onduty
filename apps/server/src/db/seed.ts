@@ -20,15 +20,6 @@ export async function seed(): Promise<void> {
   const handle = await openDatabase(cfg);
   await migrate(handle);
 
-  if (handle.kind === 'rest') {
-    // rest 轨：幂等最小种子（默认校区 + admin + semester_start），复用 repos/rest/seed.ts
-    const { seedRest } = await import('../repos/rest/seed.js');
-    const s = await seedRest(handle.rest);
-    logger.info(s.seeded ? 'rest seed inserted.' : 'rest seed skipped (already seeded).');
-    closeDatabase(handle);
-    return;
-  }
-
   const auth = buildAuth(handle, cfg, { secure: false, loginPath: '/login' });
   const R = createRepos(handle, { passwordProvider: auth.passwordProvider, userStore: auth.userStore });
 

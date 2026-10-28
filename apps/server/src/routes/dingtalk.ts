@@ -7,7 +7,7 @@
  *  - GET    /contacts                   通讯录联系人列表（绑定下拉的数据源）
  *  - GET    /apps                       列出企业应用（agentId 发现：asyncsend_v2 必需 agentId 且无法从 appKey 反推）
  *  - GET    /bindings                   用户 ↔ 钉钉 userid 绑定列表（扫码登录 + 身份解析的依据）
- *  - POST   /bindings                   建绑定 { userId, dingtalkUserId }（写 oauth2_identity_links）
+ *  - POST   /bindings                   建绑定 { userId, dingtalkUserId }（写 oidc_identity_links）
  *  - DELETE /bindings/:userId           解绑（按本系统用户 id 删钉钉 link）
  *  - GET    /notifications              通知日志（分页，可按 status/kind 过滤）
  *  - POST   /notifications/flush        补发全部 pending（凭证到位后用）
@@ -109,7 +109,7 @@ export function createDingtalkRoutes(deps: RouteDeps): Hono {
     return ok(c, await p.listMicroApps());
   });
 
-  // ── 用户 ↔ 钉钉绑定（oauth2_identity_links；扫码登录与身份解析的依据）──
+  // ── 用户 ↔ 钉钉绑定（oidc_identity_links；扫码登录与身份解析的依据）──
 
   // GET /bindings —— 全部钉钉绑定 + 用户名（管理面展示）
   app.get('/bindings', async (c) => {

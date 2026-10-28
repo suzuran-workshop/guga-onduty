@@ -14,23 +14,23 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@homurajs/3p':
-        specifier: 26.10.27
-        version: 26.10.27
+        specifier: 26.10.28
+        version: 26.10.28
       '@homurajs/app-kit':
-        specifier: 26.10.27
-        version: 26.10.27(@hono/node-server@1.19.17(hono@4.13.13))
+        specifier: 26.10.28
+        version: 26.10.28(@hono/node-server@1.19.17(hono@4.13.13))
       '@homurajs/auth':
-        specifier: 26.10.27
-        version: 26.10.27(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
+        specifier: 26.10.28
+        version: 26.10.28(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
       '@homurajs/core':
-        specifier: 26.10.27
-        version: 26.10.27
+        specifier: 26.10.28
+        version: 26.10.28
       '@homurajs/db':
-        specifier: 26.10.27
-        version: 26.10.27(postgres@3.4.9)
+        specifier: 26.10.28
+        version: 26.10.28(postgres@3.4.9)
       '@homurajs/storage':
-        specifier: 26.10.27
-        version: 26.10.27(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)
+        specifier: 26.10.28
+        version: 26.10.28(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)
       '@hono/node-server':
         specifier: ^1.19.0
         version: 1.19.17(hono@4.13.13)
@@ -505,12 +505,12 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@homurajs/3p@26.10.27':
-    resolution: {integrity: sha512-bbITD9pNxVTKQQWhHQedNSdYCYRTEINjMFocwzeTSmoRfLHQ9L3GL5BO7r1kZkPIRLTD0+Mmd4WM7vK2UXWStA==}
+  '@homurajs/3p@26.10.28':
+    resolution: {integrity: sha512-6sM3YbzILThyYf2zmVST2hrxuZNsZ/TwaPx4wdsTwx12DQX2e3Zaw6YHw6JPcTHl6UrMjNqChJoHoG2t+IVeNA==}
     engines: {node: '>=22.5'}
 
-  '@homurajs/app-kit@26.10.27':
-    resolution: {integrity: sha512-g1LszYyW6rJlXhPBYO9yX2qnqy4TM+vYBxRGF5mlmBzQoWZjjj41HL+tpmuJSlan0+K1o043Rke5RKTVxfhxNQ==}
+  '@homurajs/app-kit@26.10.28':
+    resolution: {integrity: sha512-TvD2Sx07p5MulB9BXWqO94iXMk0mzcpHsuO1omR1HXmH80ir3D3n9jpV+9u7whqwZFMWCtSWRTT3BBS1PQzcNg==}
     engines: {node: '>=22.5'}
     peerDependencies:
       '@hono/node-server': ^1.19.0
@@ -518,8 +518,8 @@ packages:
       '@hono/node-server':
         optional: true
 
-  '@homurajs/auth@26.10.27':
-    resolution: {integrity: sha512-34Mn34w9MPLE4LWEMzI+vZDVC9oeX49pXi4TfZf8XD/ev5A1Dj2JOW1OXSZzcwU+/ZgP+q9F5VuuSp5Jx0fi4g==}
+  '@homurajs/auth@26.10.28':
+    resolution: {integrity: sha512-uf5bg6Q/g1flHzGheGIuS4IJweqWz8m/jeMcL361U8MipHEm7pWFn59WObJtonsRqoywT0ui/llCryB9utBOIA==}
     engines: {node: '>=22.5'}
     peerDependencies:
       '@simplewebauthn/server': ^11.0.0
@@ -533,12 +533,12 @@ packages:
       hono:
         optional: true
 
-  '@homurajs/core@26.10.27':
-    resolution: {integrity: sha512-bitynE5OfZz+yMqud4dLbRFHXshb+1XsG/+pbQKm9S6VPh1d+wRNmz/4VOI/RjmXuEcjMvmYo3jO7rXIlQG54g==}
+  '@homurajs/core@26.10.28':
+    resolution: {integrity: sha512-upJ/GyDVB14vFlnBQrGCCZs+QK2XJtxrFMQu7G0/ZKvb5xgshrDAzt4MN+xE7JPsrey76FUUQT6Q+jNwqpq/Yw==}
     engines: {node: '>=22.5'}
 
-  '@homurajs/db@26.10.27':
-    resolution: {integrity: sha512-JfkvxF/9WfgLV75wf0wh9jlT1C1qitABg5s5Ep2mWuZsqal/XwZLuTEtDWHTXRMhO3G+CH0a5BQ5UX0uIhyDtA==}
+  '@homurajs/db@26.10.28':
+    resolution: {integrity: sha512-0rYPWcsgMCCe/5m3kUHmVSziyCDXWVd2oItM+1wZouLtrvf4ejiCo94O7WV8u/aQHV1ij2Iep3KRSXnHqvQXqg==}
     engines: {node: '>=22.5'}
     peerDependencies:
       postgres: ^3.4.0
@@ -546,8 +546,8 @@ packages:
       postgres:
         optional: true
 
-  '@homurajs/storage@26.10.27':
-    resolution: {integrity: sha512-aQgIA2Wriit+ba0PnKPyrLzpurgm+LTPkkxZRnrLvrIHmFtMUXDdbgQFa62JBE93m0Sn5xP/Aildi8yzHLcZnA==}
+  '@homurajs/storage@26.10.28':
+    resolution: {integrity: sha512-35ugu8ngEVPZrj4/RIS2ze9ojTiyyRw+G47ApxaasjhOWDCClAzj9Uph2dpawCBOeoARBn07vKhPajIY0pVP/Q==}
     engines: {node: '>=22.5'}
     peerDependencies:
       '@aws-sdk/client-s3': '>=3.0.0'
@@ -1707,8 +1707,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jose@6.2.12:
-    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
+  jose@6.2.13:
+    resolution: {integrity: sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ==}
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
@@ -2481,22 +2481,22 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@homurajs/3p@26.10.27':
+  '@homurajs/3p@26.10.28':
     dependencies:
-      '@homurajs/core': 26.10.27
+      '@homurajs/core': 26.10.28
 
-  '@homurajs/app-kit@26.10.27(@hono/node-server@1.19.17(hono@4.13.13))':
+  '@homurajs/app-kit@26.10.28(@hono/node-server@1.19.17(hono@4.13.13))':
     dependencies:
-      '@homurajs/core': 26.10.27
+      '@homurajs/core': 26.10.28
       hono: 4.13.13
     optionalDependencies:
       '@hono/node-server': 1.19.17(hono@4.13.13)
 
-  '@homurajs/auth@26.10.27(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
+  '@homurajs/auth@26.10.28(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
     dependencies:
-      '@homurajs/core': 26.10.27
-      '@homurajs/db': 26.10.27(postgres@3.4.9)
-      jose: 6.2.12
+      '@homurajs/core': 26.10.28
+      '@homurajs/db': 26.10.28(postgres@3.4.9)
+      jose: 6.2.13
     optionalDependencies:
       drizzle-orm: 1.0.0-rc.4(postgres@3.4.9)
       hono: 4.13.13
@@ -2549,11 +2549,11 @@ snapshots:
       - valibot
       - zod
 
-  '@homurajs/core@26.10.27': {}
+  '@homurajs/core@26.10.28': {}
 
-  '@homurajs/db@26.10.27(postgres@3.4.9)':
+  '@homurajs/db@26.10.28(postgres@3.4.9)':
     dependencies:
-      '@homurajs/core': 26.10.27
+      '@homurajs/core': 26.10.28
       drizzle-orm: 1.0.0-rc.4(postgres@3.4.9)
     optionalDependencies:
       postgres: 3.4.9
@@ -2605,61 +2605,12 @@ snapshots:
       - valibot
       - zod
 
-  '@homurajs/storage@26.10.27(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)(postgres@3.4.9)':
+  '@homurajs/storage@26.10.28(drizzle-orm@1.0.0-rc.4(postgres@3.4.9))(hono@4.13.13)':
     dependencies:
-      '@homurajs/core': 26.10.27
-      '@homurajs/db': 26.10.27(postgres@3.4.9)
+      '@homurajs/core': 26.10.28
     optionalDependencies:
       drizzle-orm: 1.0.0-rc.4(postgres@3.4.9)
       hono: 4.13.13
-    transitivePeerDependencies:
-      - '@aws-sdk/client-rds-data'
-      - '@cloudflare/workers-types'
-      - '@effect/sql-d1'
-      - '@effect/sql-libsql'
-      - '@effect/sql-mysql2'
-      - '@effect/sql-pg'
-      - '@effect/sql-pglite'
-      - '@effect/sql-sqlite-bun'
-      - '@effect/sql-sqlite-do'
-      - '@effect/sql-sqlite-node'
-      - '@effect/sql-sqlite-wasm'
-      - '@electric-sql/pglite'
-      - '@libsql/client'
-      - '@libsql/client-wasm'
-      - '@neondatabase/serverless'
-      - '@op-engineering/op-sqlite'
-      - '@opentelemetry/api'
-      - '@planetscale/database'
-      - '@sinclair/typebox'
-      - '@sqlitecloud/drivers'
-      - '@tidbcloud/serverless'
-      - '@tursodatabase/database'
-      - '@tursodatabase/database-common'
-      - '@tursodatabase/database-wasm'
-      - '@tursodatabase/serverless'
-      - '@tursodatabase/sync'
-      - '@types/better-sqlite3'
-      - '@types/mssql'
-      - '@types/pg'
-      - '@types/sql.js'
-      - '@upstash/redis'
-      - '@vercel/postgres'
-      - '@xata.io/client'
-      - arktype
-      - better-sqlite3
-      - bun-types
-      - effect
-      - expo-sqlite
-      - mssql
-      - mysql2
-      - pg
-      - postgres
-      - sql.js
-      - sqlite3
-      - typebox
-      - valibot
-      - zod
 
   '@hono/node-server@1.19.17(hono@4.13.13)':
     dependencies:
@@ -3546,7 +3497,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.12: {}
+  jose@6.2.13: {}
 
   js-tokens@9.0.1: {}
 
