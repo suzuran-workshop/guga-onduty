@@ -21,8 +21,12 @@ import {
   dutyAreas, dutyLocations, dutyTimeSlots, dutySchedules,
   dutyCheckins, dutyInspections, dutySwaps,
 } from './pg.duty.js';
-// 再导出，使 Tables(=typeof pgTables) 含值班表，repo 层可经 ctx.tables.dutyXxx 访问
-export { dutyAreas, dutyLocations, dutyTimeSlots, dutySchedules, dutyCheckins, dutyInspections, dutySwaps };
+import { dingtalkContacts, notificationLogs, appealTokens } from './pg.dingtalk.js';
+// 再导出，使 Tables(=typeof pgTables) 含值班/钉钉表，repo 层可经 ctx.tables.dutyXxx 访问
+export {
+  dutyAreas, dutyLocations, dutyTimeSlots, dutySchedules, dutyCheckins, dutyInspections, dutySwaps,
+  dingtalkContacts, notificationLogs, appealTokens,
+};
 
 /** 引用列（NOT NULL uuid）—— 引用另一表的 uuid 主键，完整性由 repo 层保证 */
 const ref = (name: string) => uuid(name).notNull();
@@ -85,4 +89,8 @@ export const pgBusinessSchema = {
   dutyCheckins,
   dutyInspections,
   dutySwaps,
+  // ── 钉钉域 3 表（通讯录/通知日志/免登录令牌）──
+  dingtalkContacts,
+  notificationLogs,
+  appealTokens,
 };

@@ -21,6 +21,23 @@ export const SWAP_TYPES = ['swap', 'proxy'] as const;
 export const SWAP_STATUSES = ['pending', 'approved', 'rejected'] as const;
 export const INSPECT_STATUSES = ['present', 'absent'] as const;
 
+// ── 钉钉域枚举（自 guga-onduty-w 移植的基建；kind 为通用工作通知语义）──
+/**
+ * 通知种类。值周仓库（guga-onduty-w）的 record_deduction/weekly_report 绑定其值周业务，
+ * 本仓库（值班域）无对应消费方，故收敛为单一通用 kind：
+ *  - `notice`：通用钉钉工作通知（管理面手动发送/补发用）
+ */
+export const NOTIFICATION_KINDS = ['notice'] as const;
+/**
+ * 通知状态。
+ *  - `pending`：已入库待发送（凭证缺失或异步队列中）
+ *  - `sent`：钉钉受理且回执确认已投递（read 或 unread）
+ *  - `failed`：钉钉返回错误，或回执显示 invalid/failed（⚠ asyncsend_v2 的 errcode:0
+ *    只代表「已受理」，发给不存在的 userid 也返 0，必须查 getsendresult 才能判失败）
+ *  - `skipped`：主动跳过
+ */
+export const NOTIFICATION_STATUSES = ['pending', 'sent', 'failed', 'skipped'] as const;
+
 /** 枚举值 → SQL IN 列表字面量（`'a', 'b'`）。值为本地常量，无注入面。 */
 export function sqlInList(values: readonly string[]): string {
   return values.map((v) => `'${v}'`).join(', ');
