@@ -91,3 +91,8 @@
 - **后果**：新 App 接钉钉登录一律走 IdP 拓扑（只配 OIDC）；通讯录/通知机制待第三个消费方出现时
   按上述刀口下沉 3p（rule of three）。App 内只留 provision 回调 + 管理面。
 - **何时重新审视**：第三个钉钉消费方出现时执行下沉；IdP 若需要感知本地账号（当前绝不）则说明分层已被破坏。
+- **补充（同日，表归属精修）**：ADR 正文所说「dingtalkContacts 表下沉」的归属定为 **auth 而非 3p**。
+  3p 保持无状态 API 客户端（拉快照/发通知），一旦拥有表就必须复刻 auth/tables 的三方言 schema 机器，
+  且与 auth 形成两个 schema 拥有者（漂移风险）。contacts 实为「外部身份目录」——oauth2_identity_links
+  的伴生表，下沉时应泛型化为 `provider`+`sub`+`name` 的通用 directory 表（auth 拥有），
+  3p 只提供拉取；依赖方向：auth ⇏ 3p、3p ⇏ auth，接线由 App 完成。
