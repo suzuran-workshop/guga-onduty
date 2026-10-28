@@ -138,7 +138,7 @@ export default function DutyInspectionPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="flex items-center gap-2 text-2xl font-semibold">
+      <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
         <Search className="size-6 text-primary" />{t('duty.inspection.title')}
       </h1>
 
@@ -183,10 +183,10 @@ export default function DutyInspectionPage() {
                     <TableCell>{r.teacherName}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="sm" variant={r.status === 'present' ? 'default' : 'outline'} onClick={() => setStatus(r.key, 'present')}>
+                        <Button size="sm" className="h-9 sm:h-8" variant={r.status === 'present' ? 'default' : 'outline'} onClick={() => setStatus(r.key, 'present')}>
                           {t('duty.inspection.present')}
                         </Button>
-                        <Button size="sm" variant={r.status === 'absent' ? 'destructive' : 'outline'} onClick={() => setStatus(r.key, 'absent')}>
+                        <Button size="sm" className="h-9 sm:h-8" variant={r.status === 'absent' ? 'destructive' : 'outline'} onClick={() => setStatus(r.key, 'absent')}>
                           {t('duty.inspection.absent')}
                         </Button>
                       </div>

@@ -78,7 +78,7 @@ export default function DutyCheckinPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+        <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
           <ClipboardCheck className="size-6 text-primary" />{t('duty.checkin.title')}
         </h1>
         <Button variant="outline" size="sm" onClick={reload} disabled={loading}>{t('common.refresh')}</Button>
@@ -137,8 +137,8 @@ export default function DutyCheckinPage() {
             </div>
             <div className="space-y-2">
               <Label>{t('duty.checkin.photosRequired')}</Label>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-sm text-muted-foreground hover:bg-accent">
-                <Camera className="mb-2 size-5" />
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-sm text-muted-foreground hover:bg-accent sm:p-6">
+                <Camera className="mb-2 size-7 sm:size-5" />
                 <input type="file" accept="image/*" multiple hidden
                   onChange={(e) => setPhotos((prev) => [...prev, ...Array.from(e.target.files || [])].slice(0, 9))} />
                 {t('duty.checkin.photos')}
@@ -191,7 +191,7 @@ function TaskCard({ task, onCheckin, done, checkinLabel }: {
       {done ? (
         <Badge variant="success" className="gap-1"><CheckCircle2 className="size-3" />{t('duty.checkin.checkedIn')}</Badge>
       ) : (
-        <Button size="sm" onClick={onCheckin}>{checkinLabel}</Button>
+        <Button size="sm" className="h-9 shrink-0 px-4 sm:h-8" onClick={onCheckin}>{checkinLabel}</Button>
       )}
     </div>
   );

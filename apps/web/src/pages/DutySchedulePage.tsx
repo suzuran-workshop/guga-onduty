@@ -77,7 +77,7 @@ export default function DutySchedulePage() {
     <div className="space-y-4">
       {/* 标题 + 快捷操作 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+        <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
           <CalendarDays className="size-6 text-primary" />
           {t('duty.schedule.title')}
         </h1>

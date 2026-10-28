@@ -109,7 +109,7 @@ export default function DutySwapPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+        <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
           <ArrowLeftRight className="size-6 text-primary" />{t('duty.swap.title')}
         </h1>
         <Button size="sm" onClick={openNew}><Plus className="size-4" />{t('duty.swap.newSwap')}</Button>
@@ -145,8 +145,8 @@ export default function DutySwapPage() {
               {/* admin 审批 pending */}
               {isAdmin && s.status === 'pending' && (
                 <div className="mt-2 flex gap-2">
-                  <Button size="sm" onClick={() => review(s.id, 'approved')}><Check className="size-4" />{t('duty.swap.approve')}</Button>
-                  <Button size="sm" variant="destructive" onClick={() => review(s.id, 'rejected')}><X className="size-4" />{t('duty.swap.reject')}</Button>
+                  <Button size="sm" className="h-9 sm:h-8" onClick={() => review(s.id, 'approved')}><Check className="size-4" />{t('duty.swap.approve')}</Button>
+                  <Button size="sm" variant="destructive" className="h-9 sm:h-8" onClick={() => review(s.id, 'rejected')}><X className="size-4" />{t('duty.swap.reject')}</Button>
                 </div>
               )}
             </div>

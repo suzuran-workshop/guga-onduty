@@ -42,7 +42,7 @@ export default function DutyConfigPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="flex items-center gap-2 text-2xl font-semibold">
+      <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
         <Settings2 className="size-6 text-primary" />{t('duty.config.title')}
       </h1>
 

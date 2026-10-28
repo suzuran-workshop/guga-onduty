@@ -2,7 +2,7 @@
  * 登录页 —— shadcn Card + cookie 登录。
  * 迁移：旧 Fluent Card/Input/Button → shadcn；登录走 useAuth.login（SDK cookie）。
  */
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
+import { APP_BASE } from '@/api/client';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -21,8 +22,17 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  /** 钉钉扫码登录是否可用（后端 OAUTH_* 凭证齐备才开启；免登录探测） */
+  const [oauthLogin, setOauthLogin] = useState(false);
 
   const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/';
+
+  useEffect(() => {
+    fetch(`${APP_BASE}/api/public/dingtalk/status`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setOauthLogin(Boolean(j?.data?.oauthLogin)))
+      .catch(() => setOauthLogin(false));
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -84,6 +94,29 @@ export default function LoginPage() {
               {loading ? t('auth.loginLoading') : t('auth.login')}
             </Button>
           </form>
+          {oauthLogin && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">{t('auth.or')}</span>
+                </div>
+              </div>
+              {/* 免账密扫码：SDK GET /auth/oauth2/authorize → 302 oauth2-dingtalk → 回调建会话。
+                  仅 oauth2_identity_links 已绑定的用户可登录（JIT 关闭，未绑定引导联系管理员）。 */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  window.location.href = `${APP_BASE}/auth/oauth2/authorize?returnTo=${encodeURIComponent(APP_BASE + from)}`;
+                }}
+              >
+                {t('auth.dingtalkLogin')}
+              </Button>
+              <p className="mt-2 text-center text-xs text-muted-foreground">{t('auth.dingtalkLoginHint')}</p>
+            </>
+          )}
           <p className="mt-4 text-center text-xs text-muted-foreground">
             {t('auth.testAccounts')} admin / teacher1 / teacher2
           </p>

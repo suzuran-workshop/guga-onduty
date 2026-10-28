@@ -22,7 +22,14 @@ export class ApiClientError extends Error {
   }
 }
 
-const API_BASE = '/api/v1';
+/**
+ * 子路径部署 base（nginx 子路径反代场景，如 /bengbu3shixiao/onduty）。
+ * vite build --base=<path>/ 时由 BASE_URL 注入；根部署（BASE_URL='/'）归一为空串。
+ * 所有同源绝对路径（/api、/auth、/files）必须经 withBase 拼接，否则子路径下 404。
+ */
+export const APP_BASE = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
+const API_BASE = `${APP_BASE}/api/v1`;
 
 /**
  * 401 全局处理器 —— 会话过期（access+refresh 都失效）时清登录态。
@@ -138,7 +145,7 @@ export const api = {
 export const authApi = {
   /** 登录：POST /auth/password/login → {ok:true} + Set-Cookie（HttpOnly） */
   async login(username: string, password: string): Promise<void> {
-    const res = await fetch('/auth/password/login', {
+    const res = await fetch(`${APP_BASE}/auth/password/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -155,11 +162,11 @@ export const authApi = {
   },
   /** 登出：POST /auth/logout（清 cookie） */
   async logout(): Promise<void> {
-    await fetch('/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    await fetch(`${APP_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
   },
 };
 
 /** storage 文件代理 URL（图片 src 用；同源自动带 cookie） */
 export function fileUrl(objectKey: string): string {
-  return `/files/${objectKey}`;
+  return `${APP_BASE}/files/${objectKey}`;
 }
