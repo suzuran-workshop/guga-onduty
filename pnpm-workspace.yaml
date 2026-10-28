@@ -4,8 +4,9 @@ packages:
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
-  - '@homurajs/app-kit@26.10.15'
-  - '@homurajs/auth@26.10.15'
-  - '@homurajs/core@26.10.15'
-  - '@homurajs/db@26.10.15'
-  - '@homurajs/storage@26.10.15'
+  - '@homurajs/app-kit@26.10.15 || 26.10.27'
+  - '@homurajs/auth@26.10.15 || 26.10.27'
+  - '@homurajs/core@26.10.15 || 26.10.27'
+  - '@homurajs/db@26.10.15 || 26.10.27'
+  - '@homurajs/storage@26.10.15 || 26.10.27'
+  - '@homurajs/3p@26.10.27'
