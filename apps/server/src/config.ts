@@ -89,6 +89,52 @@ const config = defineConfig({
     description: 'CORS 允许的来源（逗号分隔）；修复现有硬编码 localhost 缺陷',
   },
 
+  // ── 钉钉集成（自 guga-onduty-w 移植：通讯录同步 + 通知基建 + 扫码登录）──
+  // 全部可选：**缺省不启用**，此时推送落库标记 pending + 打日志，凭证到位后可补发，
+  // 不阻塞业务主链路（降级优先于「配了才能用」）。
+  dingtalkAppKey: {
+    env: 'DINGTALK_APP_KEY',
+    parse: parses.string,
+    description: '钉钉企业应用 AppKey（配置即启用推送与通讯录同步能力）',
+  },
+  dingtalkAppSecret: {
+    env: 'DINGTALK_APP_SECRET',
+    parse: parses.string,
+    secret: true,
+    description: '钉钉企业应用 AppSecret',
+  },
+  dingtalkAgentId: {
+    env: 'DINGTALK_AGENT_ID',
+    parse: parses.string,
+    description: '钉钉工作通知 agentId（asyncsend_v2 必需；无法从 AppKey 反推，需后台查看或调 GET /dingtalk/apps）',
+  },
+  oauthDingtalkOrgId: {
+    env: 'OAUTH_DINGTALK_ORG_ID',
+    parse: parses.string,
+    description: 'oauth2-dingtalk 组织标识（配置即启用钉钉扫码登录，教师免账密）',
+  },
+  oauthDingtalkBaseUrl: {
+    env: 'OAUTH_DINGTALK_BASE_URL',
+    parse: parses.string,
+    description: 'oauth2-dingtalk 部署地址（缺省线上 dingtalk.auth.xrl.im）',
+  },
+  oauthClientId: {
+    env: 'OAUTH_CLIENT_ID',
+    parse: parses.string,
+    description: 'OAuth2 客户端 id（oauth2-dingtalk 侧登记；与 OAUTH_CLIENT_SECRET 配齐才挂登录路由）',
+  },
+  oauthClientSecret: {
+    env: 'OAUTH_CLIENT_SECRET',
+    parse: parses.string,
+    secret: true,
+    description: 'OAuth2 客户端密钥',
+  },
+  oauthRedirectUri: {
+    env: 'OAUTH_REDIRECT_URI',
+    parse: parses.string,
+    description: 'OAuth2 回调地址（本地开发须写 :5173 走 Vite proxy，否则 cookie 落错域）',
+  },
+
   // ── 日志 ──
   logLevel: {
     env: 'LOG_LEVEL',

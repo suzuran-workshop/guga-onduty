@@ -26,9 +26,12 @@ import type { AuthBundle } from './auth/build.js';
 import { buildApiRoutes } from './routes/index.js';
 import { buildFileRoutes } from './storage/build.js';
 import { requireProfile } from './middleware/profile.js';
+import { createPublicRoutes } from './routes/public.js';
 import type { FileStorage } from '@homurajs/storage';
 import type { Repos } from './repos/types.js';
 import { ApiError, isUniqueViolation } from './http/respond.js';
+import type { PlatformBundle } from './platform/build.js';
+import type { NotifyService } from './services/notify.js';
 
 export interface BuildAppOptions {
   cfg: AppConfig;
@@ -36,6 +39,10 @@ export interface BuildAppOptions {
   auth: AuthBundle;
   repos: Repos;
   storage: FileStorage;
+  /** 钉钉平台（凭证未配则 platform=null） */
+  platform: PlatformBundle;
+  /** 通知服务 */
+  notify: NotifyService;
   logger: Logger;
   /** 前端静态资源目录（adapter.assetsDir 算出）；提供则挂 static + SPA fallback */
   staticDir?: string;
@@ -44,7 +51,7 @@ export interface BuildAppOptions {
 }
 
 export function buildApp(opts: BuildAppOptions): HomuraApp {
-  const { cfg, handle, auth, repos, storage, logger, staticDir, secure } = opts;
+  const { cfg, handle, auth, repos, storage, platform, notify, logger, staticDir, secure } = opts;
 
   const corsOrigins = cfg.get('corsOrigins').split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -64,9 +71,12 @@ export function buildApp(opts: BuildAppOptions): HomuraApp {
   // 业务身份：仅对 /api/* 与 /files/* 前置 requireProfile（读 c.auth → 查 profile → c.set('profile')）。
   // 不能挂 use('*')：那会挡掉 SPA 的 / 、/login、/assets/*，未登录用户连登录页都打不开。
   // /files/* 的图片代理依赖此处注入的 profile 做校区隔离（见 storage/build.ts）。
+  // ⚠ 公开路由（/api/public/*）必须注册在守卫**之前**——Hono 按注册顺序匹配，
+  //   先注册的路由不受其后中间件影响（登录页免登录探测钉钉登录可用性）。
+  business.route('/', createPublicRoutes({ auth }));
   business.use('/api/*', requireProfile(repos.users));
   business.use('/files/*', requireProfile(repos.users));
-  business.route('/', buildApiRoutes({ repos, storage, auth }));
+  business.route('/', buildApiRoutes({ repos, storage, auth, platform, notify }));
   // /files/<key> 代理下载（createFileProxyRoutes 内部已注册 /files/:key，故挂根路径 '/'）
   // objectKey 为 uuid 前缀不可猜；<img> 同源自动带 cookie。修复旧代码图片死数据 bug。
   business.route('/', buildFileRoutes(storage));

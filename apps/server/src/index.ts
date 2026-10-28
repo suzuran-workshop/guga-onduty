@@ -13,10 +13,11 @@ import { bootstrap } from './bootstrap.js';
 
 async function main() {
   const adapter = createNodeAdapter();
-  const secure = adapter.trustProxy();
   const staticDir = adapter.assetsDir(process.env);
-
-  const { cfg, logger, homura, shutdown } = await bootstrap({ secure, staticDir, loginPath: '/login' });
+  // secure 以配置为准：adapter.trustProxy() 只认 process.env，而 .env 由 defineConfig.load()
+  // 内部装载（不经 process.env），.env 部署场景下 adapter 会误读为 false → cookie 不带 Secure。
+  const { cfg, logger, homura, shutdown } = await bootstrap({ staticDir, loginPath: '/login' });
+  const secure = cfg.get('trustProxy');
 
   const port = cfg.get('port');
   const ac = new AbortController();

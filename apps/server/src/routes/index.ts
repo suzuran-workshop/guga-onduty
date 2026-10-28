@@ -24,6 +24,7 @@ import { createCampusRoutes } from './campuses.js';
 import { createUserRoutes } from './users.js';
 import { createSettingRoutes } from './settings.js';
 import { createDutyRoutes } from './duty.js';
+import { createDingtalkRoutes } from './dingtalk.js';
 
 /** 组装业务 API 路由（挂到 createApp 的 routes） */
 export function buildApiRoutes(deps: RouteDeps): Hono {
@@ -40,6 +41,9 @@ export function buildApiRoutes(deps: RouteDeps): Hono {
 
   // ── 值班域（区域/地点/时段/排班/打卡/巡查/调班/矩阵/到岗率）──
   api.route('/api/v1/duty', createDutyRoutes(deps));
+
+  // ── 钉钉管理面（模块内部自带 requireRole('admin')）──
+  api.route('/api/v1/dingtalk', createDingtalkRoutes(deps));
 
   return api;
 }
