@@ -66,3 +66,28 @@
 - **后果**：两仓库代码高度相似（同一底座骨架），但产品边界清晰、可独立演进与交付。
   融合的技术洞察（纯函数引擎、叠加层、状态不持久化）完整保留在值班域。
 - **何时重新审视**：若未来需要两产品数据打通（如统一大屏汇总两域数据），可评估跨服务只读 API，而非重新合库。
+
+## ADR-7：钉钉身份三件套的职责分层——IdP（协议）/ homura（机制）/ App（策略）
+- **日期**：2026-10-28
+- **状态**：已采纳（本仓库已按此实现；下沉项为对 homura/3p 的演进建议）
+- **背景**：钉钉扫码登录 + 通讯录白名单 JIT 建户在本仓库（guga-onduty）与 `guga-onduty-w` 各实现一份，
+  且另有独立多租户 IdP `oauth2-dingtalk`。需要明确：哪些下沉 homura、哪些留在 App、
+  以及 **oauth2-dingtalk IdP 自身承担什么**——不是「homura vs App」二选一，而是三层。
+- **决策**：
+  - **oauth2-dingtalk IdP（协议网关）**：钉钉 OAuth 协议细节的唯一封印处——authCode 一次性语义、
+    users/me→unionId→getbyunionid 换 userid、sub=企业 userid 的语义锚定、多租户 org 路由、
+    clientId/secret 托管。对 App 只暴露标准 OIDC 表面（authorize/token/userinfo）。
+    红线：**不碰任何本地用户库**——它不知道 users 表长什么样，其职责止于交付可信的 sub。
+  - **homura（机制）**：OIDC 客户端与会话（已有）、oauth2_identity_links 绑定表（已有）、
+    未来下沉项：dingtalkContacts 表 + 同步任务、notify 服务（发送/回执/补发）、
+    IdentityResolver **骨架**（查绑定→miss 匹配→落库→钩子），以 `provision(sub, contact)` 回调收敛策略点。
+  - **App（策略）**：provision 判定（通讯录即白名单、默认角色/校区、JIT 允许性）、RBAC/校区隔离、
+    通知的业务触发点与模板、管理面 UI。**建户是 App 的信任边界，永不下沉。**
+- **为什么不全部下沉 homura**：① 建户策略是业务安全边界，框架硬编码任何一种都错；
+  ② 修坑走 homura 发版会阻塞 App 上线（getbyunionid 参数名即例）；
+  ③ 登录链路存在更彻底的收敛——App 只依赖标准 OIDC，钉钉细节归 IdP，homura 无需新增钉钉知识。
+- **为什么不留在 App**：两仓库已各自复制 contacts/notify/sync，坑修不了一次（errcode:0≠送达等语义
+  迟早漂移）；auth/tables 已有「框架自带表按包分发三方言 schema」的先例，下沉不是开创先例。
+- **后果**：新 App 接钉钉登录一律走 IdP 拓扑（只配 OIDC）；通讯录/通知机制待第三个消费方出现时
+  按上述刀口下沉 3p（rule of three）。App 内只留 provision 回调 + 管理面。
+- **何时重新审视**：第三个钉钉消费方出现时执行下沉；IdP 若需要感知本地账号（当前绝不）则说明分层已被破坏。
