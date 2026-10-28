@@ -1,14 +1,28 @@
 /**
- * 认证装配 —— @homurajs/auth 的 SessionManager + PasswordProvider + SDK 路由。
+ * 认证装配 —— @homurajs/auth 的 SessionManager + PasswordProvider + SDK 路由 + OAuth2 扫码登录。
  *
  * 身份模型（docs/MIGRATION-HOMURA.md §2.2）：
  *  - auth SDK 的 `users`/`passwords`/`refresh_tokens` 表管「你是谁」（uuid 身份锚点 + scrypt 密码）。
- *  - 业务 `userProfiles` 表管「你能做什么」（role / campusId / displayName / groupId）。
+ *  - 业务 `userProfiles` 表管「你能做什么」（role / campusId / displayName）。
  *  - session.sub = users.id(uuid)；业务中间件 requireProfile 再查 userProfiles 补角色/校区。
  *
  * store 按数据方言选（drizzle 版 for sqlite/pg，rest 版 for qw-pages），接口语义严格对齐。
  *
- * 登录走 SDK 的 `POST /auth/password/login`（scrypt 校验 + 下发 access/refresh cookie）。
+ * 登录双通道：
+ *  - 账密：SDK `POST /auth/password/login`（scrypt 校验 + 下发 access/refresh cookie）。
+ *  - 钉钉扫码：SDK `GET /auth/oauth2/authorize` → oauth2-dingtalk IdP → 回调建会话。
+ *    配置 OAUTH_DINGTALK_ORG_ID + OAUTH_CLIENT_ID/SECRET + OAUTH_REDIRECT_URI 即启用。
+ *    IdentityResolver 为自定义实现：① 显式绑定（oauth2_identity_links，admin 预绑定或
+ *    历史自动绑定）优先放行；② 无绑定时尝试**自动匹配**（drizzle 轨，见 auth/auto-link.ts）：
+ *    IdP sub 在通讯录缓存中、且姓名与 userProfiles.displayName 唯一对应、且该账号未绑
+ *    其他钉钉身份 → 自动写入绑定并放行。JIT 建户仍然关闭——值班系统是 admin 建号带
+ *    role/campus（campusId NOT NULL + role CHECK，钉钉身份里拿不到），JIT 建户必然 403
+ *    PROFILE_NOT_FOUND。
+ *    匹配不上 → IdentityNotLinkedError（fail-closed），但对外渲染中文友好错误页而非裸
+ *    JSON（SDK 硬编码 JSON，由包装中间件改写——非技术人员看到 JSON 会恐慌）。
+ *    ⚠ IdP 的 sub 是钉钉企业 userid（oauth2-dingtalk users/me→unionId→getbyunionid，
+ *      已实测）；绑定键与通讯录 userid 同源，自动匹配的绑定天然可用于钉钉域身份解析。
+ *
  * 注册**不走** SDK 自助注册（allowRegister=false）——值班系统是 admin 建号带 role/campus，
  * 由业务路由 POST /api/v1/users 调 passwordProvider.register + 建 profile（见 routes/users.ts）。
  */
@@ -19,61 +33,206 @@ import {
   createDrizzleSessionStore,
   createDrizzleUserStore,
   createDrizzlePasswordStore,
+  createDrizzleOAuth2LinkStore,
   createRestSessionStore,
   createRestUserStore,
   createRestPasswordStore,
+  createRestOAuth2LinkStore,
+  OAuth2Client,
+  IdentityNotLinkedError,
   type UserStore,
+  type OAuth2LinkStore,
+  type IdentityResolver,
+  type LocalUser,
 } from '@homurajs/auth';
 import { createAuthRoutes, sessionMiddleware } from '@homurajs/auth/hono';
+import { createMemoryTtlKv, type Logger } from '@homurajs/core';
+import { dingtalkOAuth } from '@homurajs/3p/dingtalk';
 
 import type { DbHandle } from '../db/client.js';
 import type { AppConfig } from '../config.js';
+import { tryAutoLink, isAutoLinkBlock } from './auto-link.js';
+
+/** 钉钉在 oauth2_identity_links 里的 provider 标识（绑定路由与解析共用） */
+export const DINGTALK_PROVIDER = 'dingtalk';
 
 export interface AuthBundle {
   sessions: SessionManager;
   sessionMiddleware: MiddlewareHandler;
-  /** SDK 路由：/auth/password/login、/auth/refresh、/auth/logout（挂到根，非 /api/v1） */
+  /** SDK 路由：/auth/password/login、/auth/oauth2/authorize、/auth/refresh、/auth/logout（挂到根，非 /api/v1） */
   authRoutes: Hono;
   /** 业务建号用（admin 创建用户）：register 建 user+password，profile 另建 */
   passwordProvider: PasswordProvider;
   userStore: UserStore;
+  /**
+   * OAuth2 身份关联存储（oauth2_identity_links 表）。
+   * 用途：① 钉钉扫码登录的 IdentityResolver 查绑定；② 管理面「用户 ↔ 钉钉 userid」绑定；
+   * ③ 钉钉域身份解析（resolveDingtalkUserId）。
+   */
+  linkStore: OAuth2LinkStore;
+  /** 钉钉扫码登录是否已启用（凭证齐备才挂 /auth/oauth2/*） */
+  oauthEnabled: boolean;
 }
 
 export interface BuildAuthOptions {
-  /** cookie Secure：qw-pages/https 传 true，本地 http dev 传 false（由 adapter.trustProxy 接线） */
+  /** cookie Secure：https 部署传 true，本地 http dev 传 false（由 adapter.trustProxy 接线） */
   secure: boolean;
   /** 未登录页面请求 302 的目标（SDK 不渲染登录页，指向 SPA 登录路由） */
   loginPath: string;
+  /** 可选日志（自动绑定成功 / 拒绝原因记录到服务端日志，不透出给用户） */
+  logger?: Logger;
 }
 
 export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptions): AuthBundle {
   const secret = cfg.get('sessionSecret');
 
   // store 按方言选：drizzle(sqlite/pg) vs rest(qw-pages)
-  const sessionStore =
-    handle.kind === 'rest'
-      ? createRestSessionStore(handle.rest)
-      : createDrizzleSessionStore(handle.db as never);
-  const userStore =
-    handle.kind === 'rest'
-      ? createRestUserStore(handle.rest)
-      : createDrizzleUserStore(handle.db as never);
-  const passwordStore =
-    handle.kind === 'rest'
-      ? createRestPasswordStore(handle.rest)
-      : createDrizzlePasswordStore(handle.db as never);
+  const isRest = handle.kind === 'rest';
+  const sessionStore = isRest
+    ? createRestSessionStore(handle.rest)
+    : createDrizzleSessionStore(handle.db as never);
+  const userStore = isRest
+    ? createRestUserStore(handle.rest)
+    : createDrizzleUserStore(handle.db as never);
+  const passwordStore = isRest
+    ? createRestPasswordStore(handle.rest)
+    : createDrizzlePasswordStore(handle.db as never);
+  const linkStore = isRest
+    ? createRestOAuth2LinkStore(handle.rest)
+    : createDrizzleOAuth2LinkStore(handle.db as never);
 
   const sessions = new SessionManager({ secret }, sessionStore);
   const passwordProvider = new PasswordProvider({ userStore, passwordStore });
 
   const mw = sessionMiddleware(sessions, { bearer: true, secure: opts.secure });
 
+  // ── 钉钉扫码登录（凭证齐备才挂载；缺任一配置即只有账密通道）────────
+  const oauthOrgId = cfg.get('oauthDingtalkOrgId');
+  const oauthClientId = cfg.get('oauthClientId');
+  const oauthClientSecret = cfg.get('oauthClientSecret');
+  const oauthRedirectUri = cfg.get('oauthRedirectUri');
+  const oauthEnabled = Boolean(oauthOrgId && oauthClientId && oauthClientSecret && oauthRedirectUri);
+
+  let oauth2: Parameters<typeof createAuthRoutes>[0]['oauth2'];
+  if (oauthEnabled) {
+    // 3p 的 dingtalkOAuth 预设：endpoints + mapUser（oauth2-dingtalk userinfo → AuthUser）
+    const preset = dingtalkOAuth({ orgId: oauthOrgId!, baseUrl: cfg.get('oauthDingtalkBaseUrl') || undefined });
+    const client = new OAuth2Client({
+      clientId: oauthClientId!,
+      clientSecret: oauthClientSecret!,
+      redirectUri: oauthRedirectUri!,
+      endpoints: preset.endpoints,
+      mapUser: preset.mapUser,
+      // state 一次性消费（5min TTL，防 CSRF）；内存 KV（多实例部署需换 db/redis 实现）
+      stateKv: createMemoryTtlKv(),
+    });
+    // 自定义 IdentityResolver：显式绑定优先；无绑定时 drizzle 轨尝试通讯录自动匹配；
+    // 匹配不上抛 IdentityNotLinkedError（SDK 转 JSON，再由下方包装中间件改写成友好页），绝不静默建户。
+    const identityResolver: IdentityResolver = {
+      async resolve(provider: string, providerSub: string, _profile): Promise<LocalUser> {
+        const link = await linkStore.findByProvider(provider, providerSub);
+        if (link) {
+          const user = await userStore.findById(link.userId);
+          if (user) return user;
+        }
+        if (handle.kind === 'drizzle' && provider === DINGTALK_PROVIDER) {
+          const result = await tryAutoLink(
+            handle,
+            { linkStore, userStore },
+            provider,
+            providerSub,
+            opts.logger,
+          );
+          if (!isAutoLinkBlock(result)) return result;
+          opts.logger?.warn('oauth2 login blocked (auto-link failed)', {
+            provider,
+            reason: result,
+            providerSub,
+          });
+        }
+        throw new IdentityNotLinkedError(provider, providerSub);
+      },
+    };
+    oauth2 = { client, identityResolver, provider: DINGTALK_PROVIDER };
+  }
+
   const authRoutes = createAuthRoutes({
     sessions,
     password: passwordProvider,
+    oauth2, // 未配置凭证时为 undefined → 不挂 OAuth2 路由
     allowRegister: false, // 值班系统：admin 建号，禁自助注册
     secure: opts.secure,
   });
 
-  return { sessions, sessionMiddleware: mw, authRoutes, passwordProvider, userStore };
+  // 包装 SDK 路由：OAuth2 回调的失败响应（SDK 硬编码 JSON 403/401）改写为中文友好 HTML——
+  // 扫码登录的主要用户是非技术人员，裸 JSON（含 provider/sub 技术细节）只会引发恐慌。
+  // 原始错误体仍打到服务端日志便于排查。账密等 JSON API 不受影响。
+  const wrappedAuthRoutes = new Hono();
+  wrappedAuthRoutes.use('/auth/oauth2/callback', async (c, next) => {
+    await next();
+    const res = c.res;
+    if (res.status !== 403 && res.status !== 401) return;
+    if (!(res.headers.get('content-type') ?? '').includes('application/json')) return;
+    const raw = await res.text();
+    console.error('[oauth2/callback] login rejected:', raw.slice(0, 500));
+    let body: { error?: string } | null = null;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      /* 非 JSON 兜底按 oauth_failed 处理 */
+    }
+    const kind = body?.error === 'identity_not_linked' ? 'not_linked' : 'failed';
+    // 「返回登录」目标：优先从 redirectUri 推导 SPA 部署前缀（子路径部署下 /login 会 404）
+    const base = (cfg.get('oauthRedirectUri') || '').replace(/\/auth\/oauth2\/callback$/, '');
+    const backTo = (base || opts.loginPath) + (base ? '/login' : '');
+    c.res = new Response(oauthErrorHtml(kind, backTo), {
+      status: res.status,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  });
+  wrappedAuthRoutes.route('/', authRoutes);
+
+  return { sessions, sessionMiddleware: mw, authRoutes: wrappedAuthRoutes, passwordProvider, userStore, linkStore, oauthEnabled };
+}
+
+/**
+ * OAuth2 登录失败友好页（中文、无技术细节、无 provider/sub）。
+ * kind=not_linked：钉钉身份未关联到系统账号（未同步通讯录 / admin 未建号 / 重名歧义）；
+ * kind=failed：登录过程异常（重试即可，多次失败找管理员）。
+ */
+function oauthErrorHtml(kind: 'not_linked' | 'failed', backTo: string): string {
+  const notLinked = kind === 'not_linked';
+  const title = notLinked ? '暂时无法登录' : '登录失败';
+  const hint = notLinked
+    ? '您的钉钉账号还没有关联到系统账号。常见原因：<br>· 系统通讯录中还没有您的信息<br>· 系统中尚未为您开通账号，或您的姓名与多人重名，需要管理员人工确认'
+    : '钉钉登录过程中出现异常，请返回后重试。<br>如多次尝试仍失败，请联系管理员。';
+  const safeBack = backTo.replace(/"/g, '%22');
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:#f4f5f7;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#333}
+  .card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);
+        max-width:420px;width:calc(100% - 48px);padding:36px 32px;text-align:center}
+  .icon{font-size:44px;margin-bottom:12px}
+  h1{font-size:20px;margin:0 0 12px}
+  p{font-size:14px;line-height:1.8;color:#666;margin:0 0 24px}
+  a.btn{display:inline-block;padding:10px 28px;border-radius:8px;background:#2563eb;color:#fff;
+        text-decoration:none;font-size:14px}
+  a.btn:hover{background:#1d4ed8}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${notLinked ? '🔒' : '⚠️'}</div>
+    <h1>${title}</h1>
+    <p>${hint}</p>
+    <a class="btn" href="${safeBack}">返回登录</a>
+  </div>
+</body>
+</html>`;
 }
