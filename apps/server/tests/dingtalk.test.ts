@@ -14,7 +14,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { boot, seedStandard, type Harness } from './helpers/harness.js';
 import { createNotifyService } from '../src/services/notify.js';
-import { tryAutoLink } from '../src/auth/auto-link.js';
+import { jitProvision } from '../src/auth/auto-link.js';
 import { sha256Hex } from '../src/utils/token.js';
 
 let h: Harness;
@@ -270,61 +270,66 @@ describe('免登录令牌：只存哈希 + 一次性原子消费', () => {
   });
 });
 
-describe('扫码登录自动匹配（通讯录姓名 ↔ displayName 唯一命中才绑定）', () => {
-  let userId: string;
-  const CAMPUS = 'campus-autolink';
+describe('扫码登录 JIT 建户（通讯录即白名单：userid 命中即建号+绑定）', () => {
+  const CAMPUS = 'campus-jit';
+  let firstUserId: string;
 
   beforeAll(async () => {
-    const { handle, auth } = h2.booted;
-    await handle.db.insert(handle.tables.campuses).values({ id: CAMPUS, name: '测试校区', code: 'auto' });
-    const u = await auth.passwordProvider.register({ username: 'zhangsan', password: '123456' });
-    userId = u.id;
-    await handle.db.insert(handle.tables.userProfiles).values({
-      userId, campusId: CAMPUS, displayName: '张三', role: 'teacher', canInspect: 0,
-    });
+    const { handle } = h2.booted;
+    await handle.db.insert(handle.tables.campuses).values({ id: CAMPUS, name: '测试校区', code: 'jit' });
     await handle.db.insert(handle.tables.dingtalkContacts).values([
-      { userId: 'dt-zhangsan', name: '张三', syncedAt: Date.now() },
-      { userId: 'dt-lisi', name: '李四', syncedAt: Date.now() }, // 通讯录有、系统无账号
-      { userId: 'dt-wangwu', name: '王五', syncedAt: Date.now() }, // 系统重名
-    ]);
-    const u2 = await auth.passwordProvider.register({ username: 'wangwu1', password: '123456' });
-    const u3 = await auth.passwordProvider.register({ username: 'wangwu2', password: '123456' });
-    await handle.db.insert(handle.tables.userProfiles).values([
-      { userId: u2.id, campusId: CAMPUS, displayName: '王五', role: 'teacher', canInspect: 0 },
-      { userId: u3.id, campusId: CAMPUS, displayName: '王五', role: 'teacher', canInspect: 0 },
+      { userId: 'dt-jit-001', name: '张三', syncedAt: Date.now() },
+      { userId: 'dt-jit-002', name: '李四', unionId: 'union-lisi-xyz', syncedAt: Date.now() },
     ]);
   });
 
-  it('唯一命中 → 自动绑定并返回用户；link 落库', async () => {
+  it('userid 命中通讯录 → 建号（username=userid、displayName=通讯录姓名、teacher+默认校区）+ 绑定落库', async () => {
     const { handle, auth } = h2.booted;
-    const r = await tryAutoLink(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-zhangsan');
+    const r = await jitProvision(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-jit-001');
     expect(typeof r).toBe('object');
-    expect((r as { id: string }).id).toBe(userId);
-    const link = await auth.linkStore.findByProvider('dingtalk', 'dt-zhangsan');
-    expect(link?.userId).toBe(userId);
+    const user = r as { id: string; username: string | null };
+    firstUserId = user.id;
+    expect(user.username).toBe('dt-jit-001');
+    const profiles = await (handle.db as any).select().from(handle.tables.userProfiles);
+    const mine = profiles.find((p: any) => p.userId === user.id);
+    expect(mine).toMatchObject({ displayName: '张三', role: 'teacher', campusId: CAMPUS, canInspect: 0 });
+    const link = await auth.linkStore.findByProvider('dingtalk', 'dt-jit-001');
+    expect(link?.userId).toBe(user.id);
   });
 
-  it('绑定后再匹配同账号 → conflict（防抢占，显式绑定路径接管）', async () => {
+  it('再次 provision 同一 sub → 幂等复用（不重复建号）', async () => {
     const { handle, auth } = h2.booted;
-    const r = await tryAutoLink(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-zhangsan');
-    expect(r).toBe('conflict');
+    const r = await jitProvision(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-jit-001');
+    expect((r as { id: string }).id).toBe(firstUserId);
+    const again = await auth.userStore.findByUsername('dt-jit-001');
+    expect(again?.id).toBe(firstUserId);
   });
 
-  it('sub 不在通讯录 → no_contact', async () => {
+  it('绑定丢失但账号已存在（username 冲突）→ 复用旧账号重建绑定', async () => {
     const { handle, auth } = h2.booted;
-    const r = await tryAutoLink(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-nobody');
+    const oldLink = await auth.linkStore.findByProvider('dingtalk', 'dt-jit-001');
+    if (oldLink) await auth.linkStore.delete(oldLink.id);
+    const r = await jitProvision(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-jit-001');
+    expect(typeof r).toBe('object');
+    expect((r as { id: string }).id).toBe(firstUserId);
+    const link = await auth.linkStore.findByProvider('dingtalk', 'dt-jit-001');
+    expect(link?.userId).toBe(firstUserId);
+  });
+
+  it('sub 为 unionid 形态 → 按通讯录 unionId 兜底命中', async () => {
+    const { handle, auth } = h2.booted;
+    const r = await jitProvision(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'union-lisi-xyz');
+    expect(typeof r).toBe('object');
+    const user = r as { id: string };
+    const again = await auth.userStore.findById(user.id);
+    expect(again?.username).toBe('union-lisi-xyz'); // username=sub（此处即 unionid）
+  });
+
+  it('不在通讯录 → no_contact（fail-closed，绝不建户）', async () => {
+    const { handle, auth } = h2.booted;
+    const r = await jitProvision(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-outsider');
     expect(r).toBe('no_contact');
-  });
-
-  it('通讯录有、系统无账号 → no_profile', async () => {
-    const { handle, auth } = h2.booted;
-    const r = await tryAutoLink(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-lisi');
-    expect(r).toBe('no_profile');
-  });
-
-  it('重名歧义 → ambiguous（宁可不登也不错绑）', async () => {
-    const { handle, auth } = h2.booted;
-    const r = await tryAutoLink(handle, { linkStore: auth.linkStore, userStore: auth.userStore }, 'dingtalk', 'dt-wangwu');
-    expect(r).toBe('ambiguous');
+    const ghost = await auth.userStore.findByUsername('dt-outsider');
+    expect(ghost).toBeNull();
   });
 });

@@ -8,7 +8,7 @@
 ## 概述
 - 本项目面向中小学**教师执勤值班**：把教师校园巡查执勤变成可排班、可履职、可监督、可变更的一站式工具
 - 值班域：区域 / 地点 / 时段配置、排班模板（周期 + 单双周 + 会签）、Excel 排班导入、执勤打卡（照片）、领导巡查、调班审批、值班大表矩阵、到岗率统计、数字大屏数据源、多校区隔离
-- 钉钉集成（自 `guga-onduty-w` 移植）：组织通讯录同步（不含家校）、通知日志/补发、免登录令牌基建、用户↔钉钉绑定、钉钉扫码登录（OAuth2，JIT 关闭；新用户扫码自动匹配通讯录姓名↔displayName 唯一命中即绑定，失败渲染中文友好页）
+- 钉钉集成（自 `guga-onduty-w` 移植）：组织通讯录同步（不含家校）、通知日志/补发、免登录令牌基建、用户↔钉钉绑定、钉钉扫码登录（OAuth2，JIT 建户：userid 命中通讯录即自动建号+绑定+登录，通讯录即白名单；拒绝时渲染中文友好页）
 - 核心设计：**状态不持久化、实时计算**（DB 只存周期模板 + 打卡 + 已批准调班；展开/矩阵/统计查询时实时算）
 
 ## 边界与范围
@@ -23,7 +23,7 @@
   - git commit 遵循 Conventional Commits，subject 不超过 72 字符
 - **数据库**：`@homurajs/db`（Drizzle）三轨——`DB_DIALECT=sqlite`（默认，node:sqlite，`apps/server/data/app.db`）/ `pg`（postgres-js）/ `rest`（PostgREST，qw-pages）。**迁移 SQL 必须 `pnpm db:generate`（drizzle-kit 从 schema 生成），绝不手写 DDL**
 - **Schema 铁律**：pg.ts / sqlite.ts 双方言手写、列名一律 **camelCase**、主键 uuid、`assertSchemaParity` 门禁校验表名/列名/主键一致；不用 drizzle `references()`（rest 轨无 FK，完整性靠 repo+事务）
-- **鉴权**：`@homurajs/auth` cookie 会话（HttpOnly access+refresh，非 localStorage token）；`sessionMiddleware` 设 `c.get('auth').sub`(=users.id uuid) → `requireProfile` 查 userProfiles 设 `c.get('profile')`(role/campusId/canInspect) → `requireRole` RBAC。登录双通道：SDK `POST /auth/password/login`；钉钉扫码 `GET /auth/oauth2/authorize`（OAUTH_* 凭证齐备才挂载；IdentityResolver 显式绑定优先，无绑定走 `auth/auto-link.ts` 自动匹配——sub∈通讯录 且 姓名↔displayName 全库唯一 且 未绑其他钉钉号 → 写 oauth2_identity_links 放行，否则 fail-closed；回调失败由包装中间件改写为中文 HTML 错误页，绝不向用户吐 JSON）
+- **鉴权**：`@homurajs/auth` cookie 会话（HttpOnly access+refresh，非 localStorage token）；`sessionMiddleware` 设 `c.get('auth').sub`(=users.id uuid) → `requireProfile` 查 userProfiles 设 `c.get('profile')`(role/campusId/canInspect) → `requireRole` RBAC。登录双通道：SDK `POST /auth/password/login`；钉钉扫码 `GET /auth/oauth2/authorize`（OAUTH_* 凭证齐备才挂载；IdentityResolver 显式绑定优先，无绑定走 `auth/auto-link.ts` JIT 建户——sub 精确命中 dingtalkContacts（miss 按 unionId 兜底）→ 建号（username=userid、displayName=通讯录姓名、默认校区=最早创建、固定 teacher）→ 写 oauth2_identity_links；不在通讯录 fail-closed；回调失败由包装中间件改写为中文 HTML 错误页，绝不向用户吐 JSON）
 - **多校区隔离**：读用 `resolveCampusId(c)`（非 admin 强制本人校区）；写用 `resolveWriteCampusId(c, body)`；按 id 写端点用 `assertEntityOwnership(c, entity)` 校验归属（非本校区返 404，不泄露存在性）
 - **钉钉域**：凭证缺失一律**降级不抛错**（platform=null、通知落库 pending 可补发）；`errcode:0 ≠ 送达`（必须查 getSendResult 回执）；通讯录同步是组织级（无校区维度）；免登录令牌只存 SHA-256 哈希、一次性原子消费
 - **drizzle repo 两条硬约束**：① select 里的 sql 片段不生成别名 → orderBy 必须重复完整表达式；② pg 严格 groupBy → 补全所有非聚合列（按最严的 pg 写）

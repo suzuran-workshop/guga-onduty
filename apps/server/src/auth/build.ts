@@ -12,16 +12,13 @@
  *  - 账密：SDK `POST /auth/password/login`（scrypt 校验 + 下发 access/refresh cookie）。
  *  - 钉钉扫码：SDK `GET /auth/oauth2/authorize` → oauth2-dingtalk IdP → 回调建会话。
  *    配置 OAUTH_DINGTALK_ORG_ID + OAUTH_CLIENT_ID/SECRET + OAUTH_REDIRECT_URI 即启用。
- *    IdentityResolver 为自定义实现：① 显式绑定（oauth2_identity_links，admin 预绑定或
- *    历史自动绑定）优先放行；② 无绑定时尝试**自动匹配**（drizzle 轨，见 auth/auto-link.ts）：
- *    IdP sub 在通讯录缓存中、且姓名与 userProfiles.displayName 唯一对应、且该账号未绑
- *    其他钉钉身份 → 自动写入绑定并放行。JIT 建户仍然关闭——值班系统是 admin 建号带
- *    role/campus（campusId NOT NULL + role CHECK，钉钉身份里拿不到），JIT 建户必然 403
- *    PROFILE_NOT_FOUND。
- *    匹配不上 → IdentityNotLinkedError（fail-closed），但对外渲染中文友好错误页而非裸
- *    JSON（SDK 硬编码 JSON，由包装中间件改写——非技术人员看到 JSON 会恐慌）。
- *    ⚠ IdP 的 sub 是钉钉企业 userid（oauth2-dingtalk users/me→unionId→getbyunionid，
- *      已实测）；绑定键与通讯录 userid 同源，自动匹配的绑定天然可用于钉钉域身份解析。
+ *    IdentityResolver 为自定义实现：① 显式绑定（oauth2_identity_links）优先放行；
+ *    ② 无绑定时 **JIT 建户**（drizzle 轨，见 auth/auto-link.ts）：IdP sub（钉钉企业 userid）
+ *    精确命中通讯录缓存 → 自动建系统账号（username=userid，displayName=通讯录姓名，
+ *    默认校区 + teacher 角色）→ 写绑定 → 放行。「通讯录即账号白名单」——admin 零人工，
+ *    只需同步通讯录；不在通讯录 → IdentityNotLinkedError（fail-closed），但对外渲染中文
+ *    友好错误页而非裸 JSON（SDK 硬编码 JSON，由包装中间件改写——非技术人员看到 JSON
+ *    会恐慌）。提权/换校区必须 admin 在管理面手工调整。
  *
  * 注册**不走** SDK 自助注册（allowRegister=false）——值班系统是 admin 建号带 role/campus，
  * 由业务路由 POST /api/v1/users 调 passwordProvider.register + 建 profile（见 routes/users.ts）。
@@ -51,7 +48,7 @@ import { dingtalkOAuth } from '@homurajs/3p/dingtalk';
 
 import type { DbHandle } from '../db/client.js';
 import type { AppConfig } from '../config.js';
-import { tryAutoLink, isAutoLinkBlock } from './auto-link.js';
+import { jitProvision, isJitBlock } from './auto-link.js';
 
 /** 钉钉在 oauth2_identity_links 里的 provider 标识（绑定路由与解析共用） */
 export const DINGTALK_PROVIDER = 'dingtalk';
@@ -126,8 +123,9 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
       // state 一次性消费（5min TTL，防 CSRF）；内存 KV（多实例部署需换 db/redis 实现）
       stateKv: createMemoryTtlKv(),
     });
-    // 自定义 IdentityResolver：显式绑定优先；无绑定时 drizzle 轨尝试通讯录自动匹配；
-    // 匹配不上抛 IdentityNotLinkedError（SDK 转 JSON，再由下方包装中间件改写成友好页），绝不静默建户。
+    // 自定义 IdentityResolver：显式绑定优先；无绑定时 drizzle 轨 JIT 建户（userid 命中
+    // 通讯录即建号+绑定+登录）；不在通讯录抛 IdentityNotLinkedError（SDK 转 JSON，再由
+    // 下方包装中间件改写成友好页），绝不放行白名单之外的人。
     const identityResolver: IdentityResolver = {
       async resolve(provider: string, providerSub: string, _profile): Promise<LocalUser> {
         const link = await linkStore.findByProvider(provider, providerSub);
@@ -136,15 +134,15 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
           if (user) return user;
         }
         if (handle.kind === 'drizzle' && provider === DINGTALK_PROVIDER) {
-          const result = await tryAutoLink(
+          const result = await jitProvision(
             handle,
             { linkStore, userStore },
             provider,
             providerSub,
             opts.logger,
           );
-          if (!isAutoLinkBlock(result)) return result;
-          opts.logger?.warn('oauth2 login blocked (auto-link failed)', {
+          if (!isJitBlock(result)) return result;
+          opts.logger?.warn('oauth2 login blocked (jit provision failed)', {
             provider,
             reason: result,
             providerSub,
@@ -197,14 +195,14 @@ export function buildAuth(handle: DbHandle, cfg: AppConfig, opts: BuildAuthOptio
 
 /**
  * OAuth2 登录失败友好页（中文、无技术细节、无 provider/sub）。
- * kind=not_linked：钉钉身份未关联到系统账号（未同步通讯录 / admin 未建号 / 重名歧义）；
+ * kind=not_linked：钉钉身份未关联到系统账号（不在学校通讯录 / rest 轨无通讯录）；
  * kind=failed：登录过程异常（重试即可，多次失败找管理员）。
  */
 function oauthErrorHtml(kind: 'not_linked' | 'failed', backTo: string): string {
   const notLinked = kind === 'not_linked';
   const title = notLinked ? '暂时无法登录' : '登录失败';
   const hint = notLinked
-    ? '您的钉钉账号还没有关联到系统账号。常见原因：<br>· 系统通讯录中还没有您的信息<br>· 系统中尚未为您开通账号，或您的姓名与多人重名，需要管理员人工确认'
+    ? '您的钉钉账号不在学校通讯录中，暂时无法登录。<br>请联系管理员确认您已加入学校钉钉组织，并在系统中同步通讯录。'
     : '钉钉登录过程中出现异常，请返回后重试。<br>如多次尝试仍失败，请联系管理员。';
   const safeBack = backTo.replace(/"/g, '%22');
   return `<!DOCTYPE html>

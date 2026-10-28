@@ -1,83 +1,130 @@
 /**
- * 钉钉扫码登录 —— 新用户自动匹配（自「admin 手动预绑定」放宽）。
+ * 钉钉扫码登录 —— JIT 建户（「通讯录即账号白名单」）。
  *
- * 背景：JIT 建户仍然关闭（钉钉身份拿不到 role/campusId，系统账号必须 admin 建号），
- * 但「已同步进通讯录、且系统里有同名账号」的人不该再让 admin 逐个手动绑定——
- * 扫码时自动完成 oauth2_identity_links 写入，一次成功后永久生效。
+ * 产品流程（admin 零人工）：管理员同步钉钉通讯录 → 老师扫码 → 钉钉 userid 精确命中
+ * 通讯录 → 自动创建系统账号（username=钉钉 userid，displayName=通讯录姓名，默认校区 +
+ * teacher 角色）→ 写 oauth2_identity_links 绑定 → 登录。此后扫码按绑定表 userid 精确命中，
+ * 不再走建户路径。
  *
- * 匹配链（fail-closed，宁可不登也不错绑）：
- *   1. providerSub（钉钉企业 userid）必须存在于 dingtalkContacts（IdP sub 不在通讯录 → block）
- *   2. 通讯录姓名 ↔ userProfiles.displayName 精确匹配，且**全库唯一**（0 人或多人重名 → block）
- *   3. 该系统账号尚未绑定其他钉钉身份（已绑 → block，防抢占）
- *   4. 通过 → linkStore.create 自动绑定（唯一约束冲突按竞态处理：复查后归属不一致仍 block）
+ * 匹配键就是 userid 本身（IdP 的 sub=企业 userid，通讯录主键=userid，天然精确对应），
+ * 无需姓名模糊匹配；sub 为 unionid 形态时按通讯录 unionId 列兜底。
  *
- * 返回 LocalUser 表示匹配成功（可直接登录）；返回字符串为 block 原因（用于日志，
- * **严禁**透出到面向用户的页面——非技术人员不需要也不该看到技术细节）。
+ * fail-closed 边界：
+ *  - 不在通讯录（外部人员/已离职/家校群）→ 拒绝，绝不建户；
+ *  - JIT 建的账号固定 teacher + 默认校区，提权必须 admin 在管理面手工调整；
+ *  - rest 轨（qw-pages）无通讯录缓存，维持拒绝。
+ *
+ * 返回 LocalUser 表示可登录；返回字符串为拒绝原因（仅进服务端日志，严禁透出到用户页面）。
  */
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import type { OAuth2LinkStore, UserStore, LocalUser } from '@homurajs/auth';
 import type { DrizzleHandle } from '../db/client.js';
 import type { Logger } from '@homurajs/core';
 
-/** block 原因（内部日志用） */
-export type AutoLinkBlock =
-  | 'no_contact' // sub 不在通讯录缓存（未同步 / 外部联系人）
-  | 'no_profile' // 通讯录有此人，但系统没有同名账号（admin 尚未建号）
-  | 'ambiguous' // 同名账号多个，无法确定绑定谁
-  | 'conflict'; // 该系统账号已绑了别的钉钉身份 / 绑定竞态归属不一致
+/** 拒绝原因（内部日志用） */
+export type JitBlock =
+  | 'no_contact' // sub 不在通讯录缓存（外部人员 / 未同步 / IdP sub 回退异常形态）
+  | 'no_campus'; // 系统尚无任何校区（未初始化种子），profile 无法落
 
-export type AutoLinkResult = LocalUser | AutoLinkBlock;
+export type JitResult = LocalUser | JitBlock;
 
-export function isAutoLinkBlock(r: AutoLinkResult): r is AutoLinkBlock {
+export function isJitBlock(r: JitResult): r is JitBlock {
   return typeof r === 'string';
 }
 
 /**
- * 尝试自动匹配绑定。仅在 drizzle 轨（sqlite/pg）可用——rest 轨无通讯录缓存，维持 fail-closed。
+ * 通讯录命中 → 建户 + 绑定（幂等：账号已存在则复用，绑定已存在则复用）。
+ * 仅 drizzle 轨（sqlite/pg）可用——rest 轨无通讯录缓存，维持 fail-closed。
  */
-export async function tryAutoLink(
+export async function jitProvision(
   handle: DrizzleHandle,
   stores: { linkStore: OAuth2LinkStore; userStore: UserStore },
   provider: string,
   providerSub: string,
   logger?: Logger,
-): Promise<AutoLinkResult> {
+): Promise<JitResult> {
   const { linkStore, userStore } = stores;
-  const { dingtalkContacts, userProfiles } = handle.tables;
+  const { dingtalkContacts, userProfiles, campuses } = handle.tables;
   // Database 是 sqlite/pg 联合类型，select 链无法静态匹配 4 组合 → repo 层同款「转型一次」
   const db = handle.db as any;
 
-  // 1. IdP 给的 userid 必须在通讯录缓存里（通讯录是「哪些人属于本校」的唯一事实源）
-  const contacts = await db
+  // 并发窗口复查：另一请求可能刚完成建户+绑定，直接复用
+  const raced = await linkStore.findByProvider(provider, providerSub);
+  if (raced) {
+    const user = await userStore.findById(raced.userId);
+    if (user) return user;
+  }
+
+  // 1. userid 精确命中通讯录（miss 再按 unionId 兜底——兼容 sub 形态回退）
+  let contacts = await db
     .select()
     .from(dingtalkContacts)
     .where(eq(dingtalkContacts.userId, providerSub))
     .limit(1);
-  const name = (contacts[0]?.name ?? '').trim();
-  if (!name) return 'no_contact';
+  if (contacts.length === 0) {
+    contacts = await db
+      .select()
+      .from(dingtalkContacts)
+      .where(eq(dingtalkContacts.unionId, providerSub))
+      .limit(1);
+  }
+  const contact = contacts[0];
+  const name = (contact?.name ?? '').trim();
+  if (!contact || !name) return 'no_contact';
 
-  // 2. 姓名 ↔ displayName 精确唯一匹配
+  // 2. 默认校区：最早创建的（单校区部署即唯一校区；多校区时 admin 可在管理面调）
+  const campusRows = await db
+    .select()
+    .from(campuses)
+    .orderBy(asc(campuses.createdAt))
+    .limit(1);
+  const campusId = campusRows[0]?.id;
+  if (!campusId) return 'no_campus';
+
+  // 3. 建户（幂等）：username=钉钉 userid（企业内唯一），历史上建过但绑定丢失则复用
+  let user: LocalUser;
+  try {
+    user = await userStore.create({
+      username: providerSub,
+      nickname: name,
+      avatarUrl: contact.avatarUrl ?? null,
+    });
+  } catch {
+    const existing = await userStore.findByUsername(providerSub);
+    if (!existing) return 'no_contact';
+    user = existing;
+  }
+
+  // 4. 业务档案：displayName=通讯录姓名（改了名字下次同步会更新通讯录，这里以扫码时刻为准）
   const profiles = await db
     .select()
     .from(userProfiles)
-    .where(eq(userProfiles.displayName, name));
-  if (profiles.length === 0) return 'no_profile';
-  if (profiles.length > 1) return 'ambiguous';
-  const userId = profiles[0].userId;
-
-  // 3. 该账号不能已绑其他钉钉身份（防抢占；同 sub 已绑的在上游 findByProvider 已命中）
-  const existing = await linkStore.findByUserId(userId);
-  if (existing.some((l) => l.provider === provider)) return 'conflict';
-
-  // 4. 自动绑定（(provider, providerSub) 唯一约束兜底并发竞态）
-  try {
-    await linkStore.create({ userId, provider, providerSub });
-  } catch {
-    const dup = await linkStore.findByProvider(provider, providerSub);
-    if (!dup || dup.userId !== userId) return 'conflict';
+    .where(eq(userProfiles.userId, user.id))
+    .limit(1);
+  if (profiles.length === 0) {
+    await db.insert(userProfiles).values({
+      userId: user.id,
+      campusId,
+      displayName: name,
+      role: 'teacher', // JIT 固定最低权限角色；提权走管理面
+      canInspect: 0,
+    });
   }
 
-  logger?.info('dingtalk identity auto-linked', { userId, provider, providerSub });
-  const user = await userStore.findById(userId);
-  return user ?? 'no_profile';
+  // 5. 写绑定（唯一约束兜底并发竞态；冲突后复查归属一致即复用）
+  try {
+    await linkStore.create({ userId: user.id, provider, providerSub });
+  } catch {
+    const dup = await linkStore.findByProvider(provider, providerSub);
+    if (!dup || dup.userId !== user.id) return 'no_contact';
+  }
+
+  logger?.info('dingtalk jit user provisioned', {
+    userId: user.id,
+    username: providerSub,
+    displayName: name,
+    campusId,
+    provider,
+  });
+  return user;
 }
