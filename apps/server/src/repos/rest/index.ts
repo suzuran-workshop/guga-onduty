@@ -12,6 +12,9 @@ import { createCampusesRepo } from './campuses-repo.js';
 import { createUsersRepo, type UsersRepoAuthDeps } from './users-repo.js';
 import { createSettingsRepo } from './settings-repo.js';
 import { createDutyRepos } from './duty-repo.js';
+import {
+  createRestDingtalkContactsRepo, createRestNotificationsRepo, createRestAppealTokensRepo,
+} from './dingtalk-repo.js';
 
 export interface CreateRestReposOptions {
   passwordProvider: PasswordProvider;
@@ -28,5 +31,10 @@ export function createRestRepos(rest: RestDb, opts: CreateRestReposOptions): Rep
     users: createUsersRepo(rest, authDeps),
     settings: createSettingsRepo({ rest }),
     duty: createDutyRepos(rest),
+    dingtalk: {
+      contacts: createRestDingtalkContactsRepo({ rest }),
+      notifications: createRestNotificationsRepo({ rest }),
+      appealTokens: createRestAppealTokensRepo({ rest }),
+    },
   };
 }

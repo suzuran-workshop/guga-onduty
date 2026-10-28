@@ -15,6 +15,7 @@ import type {
   Campus, UserView, UserProfile, User, UserRole, Pagination,
 } from '@guga-onduty/shared';
 import type { DutyRepos } from './duty-types.js';
+import type { DingtalkRepos } from './dingtalk-types.js';
 
 /** 分页结果 */
 export interface Paged<T> {
@@ -60,4 +61,6 @@ export interface Repos {
   settings: SettingsRepo;
   /** 值班域 —— 排班/打卡/巡查/调班 */
   duty: DutyRepos;
+  /** 钉钉域 —— 通讯录/通知日志/免登录令牌（自 guga-onduty-w 移植的基建） */
+  dingtalk: DingtalkRepos;
 }

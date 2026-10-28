@@ -16,6 +16,9 @@ import { createCampusesRepo } from './campuses-repo.js';
 import { createUsersRepo } from './users-repo.js';
 import { createSettingsRepo } from './settings-repo.js';
 import { createDutyRepos } from './duty-repo.js';
+import {
+  createDingtalkContactsRepo, createNotificationsRepo, createAppealTokensRepo,
+} from './dingtalk-repo.js';
 
 export interface CreateDrizzleReposOptions {
   db: Database;
@@ -40,5 +43,10 @@ export function createDrizzleRepos(opts: CreateDrizzleReposOptions): Repos {
     users: createUsersRepo(ctx, { passwordProvider: opts.passwordProvider, userStore: opts.userStore }),
     settings: createSettingsRepo(ctx),
     duty: createDutyRepos(ctx),
+    dingtalk: {
+      contacts: createDingtalkContactsRepo(ctx),
+      notifications: createNotificationsRepo(ctx),
+      appealTokens: createAppealTokensRepo(ctx),
+    },
   };
 }
