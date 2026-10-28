@@ -10,3 +10,4 @@ uploads/*
 # TS 增量构建产物
 *.tsbuildinfo
 .publish
+.workbuddy/
